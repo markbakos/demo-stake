@@ -1,0 +1,7 @@
+/context/
+/skills/
+AGENTS.md
+.idea/
+node_modules/
+dist/
+*.tsbuildinfo
