@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { acceptPlinkoBet, addCredits, createAppStore, settlePlinkoBet, walletReducer } from './store'
+import {
+  acceptPlinkoBet,
+  addCredits,
+  APP_STORAGE_KEY,
+  createAppStore,
+  settlePlinkoBet,
+  walletReducer,
+} from './store'
 
 describe('walletReducer', () => {
   it('adds only an allowed credit amount', () => {
@@ -25,5 +32,21 @@ describe('walletReducer', () => {
     expect(store.dispatch(acceptPlinkoBet('round-2', 100, [2, 0.5]))).toBe(true)
     expect(store.dispatch(settlePlinkoBet('round-2', 1))).toBe(true)
     expect(store.getState().wallet.balance).toBe(10_050)
+  })
+
+  it('loads and persists a validated wallet balance', () => {
+    const values = new Map([[APP_STORAGE_KEY, JSON.stringify({ version: 1, wallet: { balance: 250 } })]])
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    }
+    const store = createAppStore(storage)
+
+    expect(store.getState().wallet.balance).toBe(250)
+    store.dispatch(addCredits(100))
+    expect(JSON.parse(values.get(APP_STORAGE_KEY) ?? 'null')).toEqual({ version: 1, wallet: { balance: 350 } })
+
+    values.set(APP_STORAGE_KEY, JSON.stringify({ version: 1, wallet: { balance: -1 } }))
+    expect(createAppStore(storage).getState().wallet.balance).toBe(10_000)
   })
 })
