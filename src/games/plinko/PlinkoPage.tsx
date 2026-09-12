@@ -153,9 +153,9 @@ export function PlinkoPage() {
             type="button"
             disabled={mode === 'auto'}
             onClick={dropNaturalBall}
-            className="rounded bg-[#00e701] py-3 font-semibold text-[#0f212e] transition-colors hover:bg-[#1fff20] active:bg-[#00c901] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]"
+            className="rounded bg-[#1475e1] py-3 font-semibold text-white transition-colors hover:bg-[#1164c1] active:bg-[#0f56a5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]"
           >
-            {mode === 'manual' ? 'Drop Ball' : 'Auto Betting In M4'}
+            {mode === 'manual' ? 'Bet' : 'Auto Betting In M4'}
           </button>
 
           <div className="mt-auto flex items-center gap-3 border-t border-[#2f4553] pt-3">
