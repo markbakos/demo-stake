@@ -6,6 +6,7 @@ import { BOARD_HEIGHT, BOARD_WIDTH, createPlinkoGeometry } from './plinkoGeometr
 
 const BALL_CATEGORY = 0x0002
 const BOARD_CATEGORY = 0x0004
+const BALL_LABEL_PREFIX = 'plinko-ball:'
 
 type RunningBoard = {
   engine: Engine
@@ -15,7 +16,7 @@ type RunningBoard = {
 export function useNaturalPlinko(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   rows: RowCount,
-  onLanding: (bin: number) => void,
+  onLanding: (roundId: string, bin: number) => void,
 ) {
   const boardRef = useRef<RunningBoard>(null)
 
@@ -66,14 +67,14 @@ export function useNaturalPlinko(
 
     const handleAfterUpdate = () => {
       for (const body of Composite.allBodies(engine.world)) {
-        if (body.label !== 'calibration-ball' || body.position.y < geometry.bottomY + 22) continue
+        if (!body.label.startsWith(BALL_LABEL_PREFIX) || body.position.y < geometry.bottomY + 22) continue
 
         const firstCenter = geometry.binCenters[0]
         const observedBin = Math.max(
           0,
           Math.min(rows, Math.round((body.position.x - firstCenter) / geometry.horizontalGap)),
         )
-        onLanding(observedBin)
+        onLanding(body.label.slice(BALL_LABEL_PREFIX.length), observedBin)
         Composite.remove(engine.world, body)
       }
     }
@@ -94,16 +95,16 @@ export function useNaturalPlinko(
     }
   }, [canvasRef, onLanding, rows])
 
-  return useCallback(() => {
+  return useCallback((roundId: string) => {
     const board = boardRef.current
-    if (!board) return
+    if (!board || !roundId) return false
 
     const ball = Bodies.circle(
       BOARD_WIDTH / 2 + (Math.random() - 0.5) * 8,
       28,
       board.geometry.pegRadius * 2.05,
       {
-        label: 'calibration-ball',
+        label: `${BALL_LABEL_PREFIX}${roundId}`,
         restitution: 0.58,
         friction: 0.02,
         frictionAir: 0.008,
@@ -113,5 +114,6 @@ export function useNaturalPlinko(
     )
     Body.setVelocity(ball, { x: (Math.random() - 0.5) * 0.8, y: 0 })
     Composite.add(board.engine.world, ball)
+    return true
   }, [])
 }

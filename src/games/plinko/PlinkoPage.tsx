@@ -1,6 +1,15 @@
 import { BarChart3, ChevronDown, Settings } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import {
+  acceptPlinkoBet,
+  cancelPlinkoBet,
+  selectActiveBetCount,
+  selectBalance,
+  settlePlinkoBet,
+  type AppDispatch,
+} from '../../app/store'
 import { PlinkoBoard } from './PlinkoBoard'
 import { ROW_OPTIONS, binPayouts, type Risk, type RowCount } from './plinkoConfig'
 import { useNaturalPlinko } from './useNaturalPlinko'
@@ -14,17 +23,29 @@ export function PlinkoPage() {
   const [risk, setRisk] = useState<Risk>('medium')
   const [rows, setRows] = useState<RowCount>(16)
   const [recentBins, setRecentBins] = useState<number[]>([])
+  const balance = useSelector(selectBalance)
+  const activeRoundCount = useSelector(selectActiveBetCount)
+  const dispatch = useDispatch<AppDispatch>()
+  const payouts = binPayouts[rows][risk]
 
-  const handleLanding = useCallback((bin: number) => {
+  const handleLanding = useCallback((roundId: string, bin: number) => {
+    if (!dispatch(settlePlinkoBet(roundId, bin))) return
     setRecentBins((current) => [bin, ...current].slice(0, 4))
-  }, [])
+  }, [dispatch])
 
   const dropNaturalBall = useNaturalPlinko(canvasRef, rows, handleLanding)
-  const payouts = binPayouts[rows][risk]
+  const isBetUnaffordable = betAmount > balance
 
   function handleBetAmount(event: ChangeEvent<HTMLInputElement>) {
     const nextAmount = event.currentTarget.valueAsNumber
     setBetAmount(Number.isFinite(nextAmount) ? Math.max(0, nextAmount) : 0)
+  }
+
+  function handleBet() {
+    const roundId = crypto.randomUUID()
+    if (!dispatch(acceptPlinkoBet(roundId, betAmount, payouts))) return
+
+    if (!dropNaturalBall(roundId)) dispatch(cancelPlinkoBet(roundId))
   }
 
   return (
@@ -75,6 +96,8 @@ export function PlinkoPage() {
                 autoComplete="off"
                 value={betAmount}
                 onChange={handleBetAmount}
+                aria-invalid={isBetUnaffordable}
+                aria-describedby={isBetUnaffordable ? 'bet-amount-error' : undefined}
                 className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-white focus:outline-none"
               />
               <button
@@ -94,6 +117,9 @@ export function PlinkoPage() {
                 2×
               </button>
             </div>
+            {isBetUnaffordable ? (
+              <p id="bet-amount-error" className="mt-1 text-xs text-red-400">Bet amount exceeds your balance.</p>
+            ) : null}
           </div>
 
           <div>
@@ -103,8 +129,9 @@ export function PlinkoPage() {
                 id="risk"
                 name="risk"
                 value={risk}
+                disabled={activeRoundCount > 0}
                 onChange={(event) => setRisk(event.currentTarget.value as Risk)}
-                className="block w-full appearance-none rounded border-2 border-[#2f4553] bg-[#0f212e] px-3 py-2.5 pr-10 text-sm font-medium text-white shadow-inner shadow-black/20 transition-colors hover:border-[#557086] focus-visible:border-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+                className="block w-full appearance-none rounded border-2 border-[#2f4553] bg-[#0f212e] px-3 py-2.5 pr-10 text-sm font-medium text-white shadow-inner shadow-black/20 transition-colors hover:border-[#557086] focus-visible:border-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -121,8 +148,9 @@ export function PlinkoPage() {
                 id="rows"
                 name="rows"
                 value={rows}
+                disabled={activeRoundCount > 0}
                 onChange={(event) => setRows(Number(event.currentTarget.value) as RowCount)}
-                className="block w-full appearance-none rounded border-2 border-[#2f4553] bg-[#0f212e] px-3 py-2.5 pr-10 text-sm font-medium text-white shadow-inner shadow-black/20 transition-colors hover:border-[#557086] focus-visible:border-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+                className="block w-full appearance-none rounded border-2 border-[#2f4553] bg-[#0f212e] px-3 py-2.5 pr-10 text-sm font-medium text-white shadow-inner shadow-black/20 transition-colors hover:border-[#557086] focus-visible:border-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {ROW_OPTIONS.map((rowCount) => (
                   <option key={rowCount} value={rowCount}>
@@ -151,8 +179,8 @@ export function PlinkoPage() {
 
           <button
             type="button"
-            disabled={mode === 'auto'}
-            onClick={dropNaturalBall}
+            disabled={mode === 'auto' || isBetUnaffordable}
+            onClick={handleBet}
             className="rounded bg-[#1475e1] py-3 font-semibold text-white transition-colors hover:bg-[#1164c1] active:bg-[#0f56a5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]"
           >
             {mode === 'manual' ? 'Bet' : 'Auto Betting In M4'}
