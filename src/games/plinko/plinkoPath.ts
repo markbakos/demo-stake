@@ -1,9 +1,33 @@
 export type PlinkoDirection = 'left' | 'right'
+export type Luck = 'normal' | 'favored' | 'kind'
 
 export type RandomSource = () => number
 
 export function createRandomPath(rows: number, random: RandomSource = Math.random): PlinkoDirection[] {
   return Array.from({ length: rows }, () => random() < 0.5 ? 'left' : 'right')
+}
+
+const luckBoostChance: Record<Luck, number> = {
+  normal: 0,
+  favored: 0.08,
+  kind: 0.16,
+}
+
+export function createOutcomePath(rows: number, luck: Luck, random: RandomSource = Math.random) {
+  const path = createRandomPath(rows, random)
+  const boostChance = luckBoostChance[luck]
+  if (boostChance === 0 || random() >= boostChance) return path
+
+  const targetBin = getTargetBin(path)
+  const outwardDirection = targetBin === rows / 2
+    ? (random() < 0.5 ? 'left' : 'right')
+    : (targetBin < rows / 2 ? 'left' : 'right')
+  const replaceDirection = outwardDirection === 'left' ? 'right' : 'left'
+  const candidates = path.flatMap((direction, index) => direction === replaceDirection ? [index] : [])
+  if (candidates.length === 0) return path
+
+  path[candidates[Math.floor(random() * candidates.length)]] = outwardDirection
+  return path
 }
 
 export function createPathForTarget(rows: number, targetBin: number, random: RandomSource = Math.random): PlinkoDirection[] {

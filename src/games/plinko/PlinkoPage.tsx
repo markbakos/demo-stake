@@ -1,4 +1,4 @@
-import { BarChart3, ChevronDown, Settings } from 'lucide-react'
+import { BarChart3, ChevronDown, Settings, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
@@ -13,18 +13,26 @@ import {
 } from '../../app/store'
 import { PlinkoBoard } from './PlinkoBoard'
 import { ROW_OPTIONS, binPayouts, type Risk, type RowCount } from './plinkoConfig'
-import { createRandomPath, getTargetBin } from './plinkoPath'
+import { createOutcomePath, createPathForTarget, getTargetBin, type Luck } from './plinkoPath'
 import type { Landing } from './plinkoPhysics'
 import { useTargetedPlinko } from './useTargetedPlinko'
 
 type Mode = 'manual' | 'auto'
 
+const LUCK_OPTIONS: readonly { value: Luck; label: string; description: string }[] = [
+  { value: 'normal', label: 'Normal', description: 'Fair odds' },
+  { value: 'favored', label: 'Favored', description: '8% boost' },
+  { value: 'kind', label: 'Kind', description: '16% boost' },
+]
+
 export function PlinkoPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const settingsDialogRef = useRef<HTMLDialogElement>(null)
   const [mode, setMode] = useState<Mode>('manual')
   const [betAmount, setBetAmount] = useState(1)
   const [risk, setRisk] = useState<Risk>('medium')
   const [rows, setRows] = useState<RowCount>(16)
+  const [luck, setLuck] = useState<Luck>('normal')
   const [recentBins, setRecentBins] = useState<number[]>([])
   const [binHit, setBinHit] = useState<{ bin: number; roundId: string }>()
   const balance = useSelector(selectBalance)
@@ -49,6 +57,29 @@ export function PlinkoPage() {
   const dropBall = useTargetedPlinko(canvasRef, rows, handleLanding)
   const isBetUnaffordable = betAmount > balance
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+
+    const developerWindow = window as Window & { dropPlinko?: (targetBin: number) => boolean }
+    developerWindow.dropPlinko = (targetBin) => {
+      if (!Number.isInteger(targetBin) || targetBin < 0 || targetBin > rows) {
+        throw new RangeError(`Target bin must be an integer from 0 through ${rows}.`)
+      }
+
+      const roundId = crypto.randomUUID()
+      const path = createPathForTarget(rows, targetBin)
+      if (!dispatch(acceptPlinkoBet(roundId, betAmount, targetBin, payouts[targetBin], path))) return false
+      if (dropBall({ roundId, targetBin, path })) return true
+
+      dispatch(cancelPlinkoBet(roundId))
+      return false
+    }
+
+    return () => {
+      delete developerWindow.dropPlinko
+    }
+  }, [betAmount, dispatch, dropBall, payouts, rows])
+
   function handleBetAmount(event: ChangeEvent<HTMLInputElement>) {
     const nextAmount = event.currentTarget.valueAsNumber
     setBetAmount(Number.isFinite(nextAmount) ? Math.max(0, nextAmount) : 0)
@@ -56,7 +87,7 @@ export function PlinkoPage() {
 
   function handleBet() {
     const roundId = crypto.randomUUID()
-    const path = createRandomPath(rows)
+    const path = createOutcomePath(rows, luck)
     const targetBin = getTargetBin(path)
     if (!dispatch(acceptPlinkoBet(roundId, betAmount, targetBin, payouts[targetBin], path))) return
 
@@ -203,7 +234,12 @@ export function PlinkoPage() {
           </button>
 
           <div className="mt-auto flex items-center gap-3 border-t border-[#2f4553] pt-3">
-            <button type="button" disabled aria-label="Game settings available later" className="rounded-full p-2 text-slate-300 opacity-60">
+            <button
+              type="button"
+              aria-label="Game settings"
+              onClick={() => settingsDialogRef.current?.showModal()}
+              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+            >
               <Settings aria-hidden="true" className="size-6" />
             </button>
             <button type="button" disabled aria-label="Live statistics available later" className="rounded-full p-2 text-slate-300 opacity-60">
@@ -212,6 +248,54 @@ export function PlinkoPage() {
           </div>
         </aside>
       </div>
+
+      <dialog
+        ref={settingsDialogRef}
+        aria-labelledby="settings-title"
+        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70"
+      >
+        <form method="dialog" className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            <h2 id="settings-title" className="text-xl font-bold">Game Settings</h2>
+            <button
+              type="submit"
+              aria-label="Close settings"
+              className="shrink-0 rounded p-2 text-[#b1bad3] transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+            >
+              <X aria-hidden="true" className="size-5" />
+            </button>
+          </div>
+
+          <fieldset className="mt-5">
+            <legend className="text-sm font-semibold text-[#b1bad3]">Luck</legend>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {LUCK_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={`flex min-w-0 cursor-pointer items-start gap-2 rounded border p-3 transition-colors ${
+                    luck === option.value
+                      ? 'border-[#00e701] bg-[#0f212e]'
+                      : 'border-[#2f4553] bg-[#172b36] hover:border-[#557086]'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="luck"
+                    value={option.value}
+                    checked={luck === option.value}
+                    onChange={() => setLuck(option.value)}
+                    className="mt-1 accent-[#00e701]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{option.label}</span>
+                    <span className="mt-0.5 block text-xs text-[#b1bad3]">{option.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </form>
+      </dialog>
 
     </main>
   )
