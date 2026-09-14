@@ -53,7 +53,11 @@ describe('walletReducer', () => {
 
     expect(store.getState().wallet.balance).toBe(250)
     store.dispatch(addCredits(100))
-    expect(JSON.parse(values.get(APP_STORAGE_KEY) ?? 'null')).toEqual({ version: 1, wallet: { balance: 350 } })
+    expect(JSON.parse(values.get(APP_STORAGE_KEY) ?? 'null')).toEqual({
+      version: 2,
+      wallet: { balance: 350 },
+      plinko: { results: [], settings: { luck: 'normal', soundEnabled: true } },
+    })
 
     values.set(APP_STORAGE_KEY, JSON.stringify({ version: 1, wallet: { balance: -1 } }))
     expect(createAppStore(storage).getState().wallet.balance).toBe(10_000)
