@@ -1,5 +1,5 @@
 import { configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit'
-import { getTargetBin, type PlinkoDirection } from '../games/plinko/plinkoPath'
+import { getTargetBin, type Luck, type PlinkoDirection } from '../games/plinko/plinkoPath'
 
 export const CREDIT_AMOUNTS = [100, 500, 1_000, 10_000] as const
 export type CreditAmount = (typeof CREDIT_AMOUNTS)[number]
@@ -18,6 +18,11 @@ type PlinkoBetSnapshot = {
   path: PlinkoDirection[]
 }
 
+type PlinkoSettings = {
+  luck: Luck
+  soundEnabled: boolean
+}
+
 export type PlinkoResult = PlinkoBetSnapshot & {
   id: string
   payout: number
@@ -26,39 +31,99 @@ export type PlinkoResult = PlinkoBetSnapshot & {
 }
 
 const MAX_PLINKO_RESULTS = 250
+const defaultPlinkoSettings: PlinkoSettings = {
+  luck: 'normal',
+  soundEnabled: true,
+}
 
 const initialState: WalletState = {
   balance: 10_000,
 }
 
-function readBalance(storage?: AppStorage) {
-  if (!storage) return initialState.balance
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function readSavedState(storage?: AppStorage) {
+  const fallback = {
+    balance: initialState.balance,
+    results: [] as PlinkoResult[],
+    settings: defaultPlinkoSettings,
+  }
+  if (!storage) return fallback
 
   try {
     const saved: unknown = JSON.parse(storage.getItem(APP_STORAGE_KEY) ?? 'null')
-    if (
-      typeof saved === 'object' &&
-      saved !== null &&
-      'version' in saved &&
-      saved.version === 1 &&
-      'wallet' in saved &&
-      typeof saved.wallet === 'object' &&
-      saved.wallet !== null &&
-      'balance' in saved.wallet &&
+    if (!isRecord(saved) || (saved.version !== 1 && saved.version !== 2)) return fallback
+
+    const balance = isRecord(saved.wallet) &&
       typeof saved.wallet.balance === 'number' &&
       Number.isFinite(saved.wallet.balance) &&
       saved.wallet.balance >= 0
-    ) return saved.wallet.balance
+      ? saved.wallet.balance
+      : fallback.balance
+    if (saved.version === 1 || !isRecord(saved.plinko)) return { ...fallback, balance }
+
+    const savedSettings = isRecord(saved.plinko.settings) ? saved.plinko.settings : {}
+    const settings: PlinkoSettings = {
+      luck: savedSettings.luck === 'normal' || savedSettings.luck === 'favored' || savedSettings.luck === 'kind'
+        ? savedSettings.luck
+        : defaultPlinkoSettings.luck,
+      soundEnabled: typeof savedSettings.soundEnabled === 'boolean'
+        ? savedSettings.soundEnabled
+        : defaultPlinkoSettings.soundEnabled,
+    }
+    const results = Array.isArray(saved.plinko.results)
+      ? saved.plinko.results.slice(-MAX_PLINKO_RESULTS).flatMap(parsePlinkoResult)
+      : []
+    return { balance, results, settings }
   } catch {
     // Invalid or unavailable browser storage falls back to demo defaults.
   }
 
-  return initialState.balance
+  return fallback
 }
 
-function persistBalance(storage: AppStorage | undefined, balance: number) {
+function parsePlinkoResult(value: unknown): PlinkoResult[] {
+  if (!isRecord(value) || !Array.isArray(value.path)) return []
+  if (!value.path.every((direction) => direction === 'left' || direction === 'right')) return []
+  const path = value.path as PlinkoDirection[]
+  if (
+    typeof value.id !== 'string' || !value.id ||
+    typeof value.wager !== 'number' || !Number.isFinite(value.wager) || value.wager < 0 ||
+    typeof value.targetBin !== 'number' || !Number.isInteger(value.targetBin) || value.targetBin < 0 ||
+    typeof value.multiplier !== 'number' || !Number.isFinite(value.multiplier) || value.multiplier < 0 ||
+    typeof value.payout !== 'number' || !Number.isFinite(value.payout) || value.payout < 0 ||
+    typeof value.profit !== 'number' || !Number.isFinite(value.profit) ||
+    typeof value.settledAt !== 'number' || !Number.isFinite(value.settledAt) || value.settledAt < 0 ||
+    path.length === 0 || value.targetBin > path.length || getTargetBin(path) !== value.targetBin
+  ) return []
+
+  return [{
+    id: value.id,
+    wager: value.wager,
+    targetBin: value.targetBin,
+    multiplier: value.multiplier,
+    path: [...path],
+    payout: value.payout,
+    profit: value.profit,
+    settledAt: value.settledAt,
+  }]
+}
+
+function persistState(
+  storage: AppStorage | undefined,
+  state: { wallet: WalletState; plinko: { results: PlinkoResult[]; settings: PlinkoSettings } },
+) {
   try {
-    storage?.setItem(APP_STORAGE_KEY, JSON.stringify({ version: 1, wallet: { balance } }))
+    storage?.setItem(APP_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      wallet: { balance: state.wallet.balance },
+      plinko: {
+        results: state.plinko.results,
+        settings: state.plinko.settings,
+      },
+    }))
   } catch {
     // The demo remains playable when browser storage is unavailable or full.
   }
@@ -103,6 +168,7 @@ const plinkoSlice = createSlice({
   initialState: {
     activeBets: {} as Record<string, PlinkoBetSnapshot>,
     results: [] as PlinkoResult[],
+    settings: defaultPlinkoSettings,
   },
   reducers: {
     betAccepted(state, action: PayloadAction<{ roundId: string; bet: PlinkoBetSnapshot }>) {
@@ -116,25 +182,36 @@ const plinkoSlice = createSlice({
       state.results.push(action.payload)
       if (state.results.length > MAX_PLINKO_RESULTS) state.results.shift()
     },
+    luckChanged(state, action: PayloadAction<Luck>) {
+      state.settings.luck = action.payload
+    },
+    soundEnabledChanged(state, action: PayloadAction<boolean>) {
+      state.settings.soundEnabled = action.payload
+    },
   },
 })
 
 const { betAccepted, betRemoved, betSettled } = plinkoSlice.actions
+export const {
+  luckChanged: setPlinkoLuck,
+  soundEnabledChanged: setPlinkoSoundEnabled,
+} = plinkoSlice.actions
 
 export const createAppStore = (storage: AppStorage | undefined = getBrowserStorage()) => {
+  const savedState = readSavedState(storage)
   const appStore = configureStore({
     reducer: {
       wallet: walletReducer,
       plinko: plinkoSlice.reducer,
     },
     preloadedState: {
-      wallet: { balance: readBalance(storage) },
-      plinko: { activeBets: {}, results: [] },
+      wallet: { balance: savedState.balance },
+      plinko: { activeBets: {}, results: savedState.results, settings: savedState.settings },
     },
   })
 
-  persistBalance(storage, appStore.getState().wallet.balance)
-  appStore.subscribe(() => persistBalance(storage, appStore.getState().wallet.balance))
+  persistState(storage, appStore.getState())
+  appStore.subscribe(() => persistState(storage, appStore.getState()))
   return appStore
 }
 export const store = createAppStore()
@@ -145,6 +222,7 @@ export type AppDispatch = typeof store.dispatch
 export const selectBalance = (state: RootState) => state.wallet.balance
 export const selectActiveBetCount = (state: RootState) => Object.keys(state.plinko.activeBets).length
 export const selectPlinkoResults = (state: RootState) => state.plinko.results
+export const selectPlinkoSettings = (state: RootState) => state.plinko.settings
 
 export const acceptPlinkoBet = (
   roundId: string,

@@ -9,6 +9,9 @@ import {
   selectActiveBetCount,
   selectBalance,
   selectPlinkoResults,
+  selectPlinkoSettings,
+  setPlinkoLuck,
+  setPlinkoSoundEnabled as setStoredPlinkoSoundEnabled,
   settlePlinkoBet,
   type AppDispatch,
 } from '../../app/store'
@@ -18,7 +21,7 @@ import {
   playPlinkoLanding,
   playPlinkoPegHit,
   preparePlinkoAudio,
-  setPlinkoSoundEnabled,
+  setPlinkoSoundEnabled as setPlinkoAudioEnabled,
 } from './plinkoAudio'
 import { ROW_OPTIONS, binPayouts, type Risk, type RowCount } from './plinkoConfig'
 import { createOutcomePath, createPathForTarget, getTargetBin, type Luck } from './plinkoPath'
@@ -41,13 +44,12 @@ export function PlinkoPage() {
   const [betAmountInput, setBetAmountInput] = useState('1')
   const [risk, setRisk] = useState<Risk>('medium')
   const [rows, setRows] = useState<RowCount>(16)
-  const [luck, setLuck] = useState<Luck>('normal')
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true)
   const [recentBins, setRecentBins] = useState<number[]>([])
   const [binHit, setBinHit] = useState<{ bin: number; roundId: string }>()
   const balance = useSelector(selectBalance)
   const activeRoundCount = useSelector(selectActiveBetCount)
   const results = useSelector(selectPlinkoResults)
+  const { luck, soundEnabled: isSoundEnabled } = useSelector(selectPlinkoSettings)
   const dispatch = useDispatch<AppDispatch>()
   const payouts = binPayouts[rows][risk]
   const parsedBetAmount = Number(betAmountInput)
@@ -65,6 +67,10 @@ export function PlinkoPage() {
   useEffect(() => {
     dispatch(cancelAllPlinkoBets())
   }, [dispatch])
+
+  useEffect(() => {
+    setPlinkoAudioEnabled(isSoundEnabled)
+  }, [isSoundEnabled])
 
   const handleLanding = useCallback(({ isConfirmed, roundId, requestedBin, observedBin }: Landing) => {
     if (!isConfirmed || requestedBin !== observedBin) {
@@ -322,7 +328,7 @@ export function PlinkoPage() {
                     name="luck"
                     value={option.value}
                     checked={luck === option.value}
-                    onChange={() => setLuck(option.value)}
+                    onChange={() => dispatch(setPlinkoLuck(option.value))}
                     className="mt-1 accent-[#00e701]"
                   />
                   <span className="min-w-0">
@@ -350,8 +356,8 @@ export function PlinkoPage() {
                 checked={isSoundEnabled}
                 onChange={(event) => {
                   const enabled = event.currentTarget.checked
-                  setIsSoundEnabled(enabled)
-                  setPlinkoSoundEnabled(enabled)
+                  setPlinkoAudioEnabled(enabled)
+                  dispatch(setStoredPlinkoSoundEnabled(enabled))
                 }}
                 className="size-5 shrink-0 accent-[#00e701]"
               />
