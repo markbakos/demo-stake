@@ -68,7 +68,7 @@ export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing
   )
 
   const sensorTop = BOARD_HEIGHT - 15
-  const sensorBottom = BOARD_HEIGHT + 15
+  const sensorBottom = BOARD_HEIGHT + 80
   const sensors = geometry.binCenters.map((center, bin) => Bodies.rectangle(
     center,
     (sensorTop + sensorBottom) / 2,
@@ -89,6 +89,21 @@ export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing
     Composite.remove(engine.world, activeBall.body)
   }
 
+  function getObservedBin(body: MatterBody) {
+    return Math.max(0, Math.min(rows, Math.round((body.position.x - geometry.binCenters[0]) / geometry.horizontalGap)))
+  }
+
+  function finishBall(activeBall: ActiveBall, observedBin: number, isConfirmed: boolean) {
+    removeBall(activeBall)
+    onLanding({
+      isConfirmed,
+      roundId: activeBall.body.label.slice(BALL_LABEL_PREFIX.length),
+      requestedBin: activeBall.targetBin,
+      observedBin,
+      position: { x: activeBall.body.position.x, y: activeBall.body.position.y },
+    })
+  }
+
   function handleCollision(event: IEventCollision<Engine>) {
     for (const pair of event.pairs) {
       const ballBody = pair.bodyA.label.startsWith(BALL_LABEL_PREFIX) ? pair.bodyA : pair.bodyB
@@ -98,14 +113,7 @@ export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing
 
       const observedBin = Number(sensorBody.label.slice(SENSOR_LABEL_PREFIX.length))
       if (observedBin !== activeBall.targetBin) continue
-      removeBall(activeBall)
-      onLanding({
-        isConfirmed: true,
-        roundId: ballBody.label.slice(BALL_LABEL_PREFIX.length),
-        requestedBin: activeBall.targetBin,
-        observedBin,
-        position: { x: ballBody.position.x, y: ballBody.position.y },
-      })
+      finishBall(activeBall, observedBin, true)
     }
   }
 
@@ -157,16 +165,16 @@ export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing
         Body.setVelocity(body, { x: escapeDirection * 1.8, y: Math.max(body.velocity.y, 1.2) })
         activeBall.stalledMilliseconds = 0
       }
-      if (engine.timing.timestamp - activeBall.startedAt > MAX_DROP_MILLISECONDS || body.position.y > BOARD_HEIGHT + 80) {
-        const observedBin = Math.max(0, Math.min(rows, Math.round((body.position.x - geometry.binCenters[0]) / geometry.horizontalGap)))
-        removeBall(activeBall)
-        onLanding({
-          isConfirmed: false,
-          roundId: body.label.slice(BALL_LABEL_PREFIX.length),
-          requestedBin: targetBin,
-          observedBin,
-          position: { x: body.position.x, y: body.position.y },
-        })
+
+      if (body.position.y >= sensorTop) {
+        const observedBin = getObservedBin(body)
+        if (observedBin === targetBin) {
+          finishBall(activeBall, observedBin, true)
+          continue
+        }
+      }
+      if (engine.timing.timestamp - activeBall.startedAt > MAX_DROP_MILLISECONDS || body.position.y > BOARD_HEIGHT + 20) {
+        finishBall(activeBall, getObservedBin(body), false)
       }
     }
   }
@@ -208,7 +216,9 @@ export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing
     destroy() {
       Events.off(engine, 'beforeUpdate', guideBalls)
       Events.off(engine, 'collisionStart', handleCollision)
-      activeBalls.clear()
+      for (const activeBall of [...activeBalls.values()]) {
+        finishBall(activeBall, getObservedBin(activeBall.body), false)
+      }
       Composite.clear(engine.world, false)
       Engine.clear(engine)
     },

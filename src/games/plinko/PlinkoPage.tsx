@@ -1,9 +1,10 @@
 import { BarChart3, ChevronDown, Settings } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   acceptPlinkoBet,
+  cancelAllPlinkoBets,
   cancelPlinkoBet,
   selectActiveBetCount,
   selectBalance,
@@ -30,6 +31,10 @@ export function PlinkoPage() {
   const activeRoundCount = useSelector(selectActiveBetCount)
   const dispatch = useDispatch<AppDispatch>()
   const payouts = binPayouts[rows][risk]
+
+  useEffect(() => {
+    dispatch(cancelAllPlinkoBets())
+  }, [dispatch])
 
   const handleLanding = useCallback(({ isConfirmed, roundId, requestedBin, observedBin }: Landing) => {
     if (!isConfirmed || requestedBin !== observedBin) {

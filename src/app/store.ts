@@ -175,3 +175,10 @@ export const cancelPlinkoBet = (roundId: string) => (dispatch: AppDispatch, getS
   dispatch(payoutCredited(bet.wager))
   return true
 }
+
+export const cancelAllPlinkoBets = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  for (const [roundId, bet] of Object.entries(getState().plinko.activeBets)) {
+    dispatch(betRemoved(roundId))
+    dispatch(payoutCredited(bet.wager))
+  }
+}

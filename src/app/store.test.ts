@@ -3,6 +3,7 @@ import {
   acceptPlinkoBet,
   addCredits,
   APP_STORAGE_KEY,
+  cancelAllPlinkoBets,
   createAppStore,
   settlePlinkoBet,
   walletReducer,
@@ -48,5 +49,16 @@ describe('walletReducer', () => {
 
     values.set(APP_STORAGE_KEY, JSON.stringify({ version: 1, wallet: { balance: -1 } }))
     expect(createAppStore(storage).getState().wallet.balance).toBe(10_000)
+  })
+
+  it('refunds orphaned active rounds', () => {
+    const store = createAppStore()
+    expect(store.dispatch(acceptPlinkoBet('round-1', 100, 0, 2, ['left']))).toBe(true)
+    expect(store.dispatch(acceptPlinkoBet('round-2', 200, 1, 2, ['right']))).toBe(true)
+
+    store.dispatch(cancelAllPlinkoBets())
+
+    expect(store.getState().wallet.balance).toBe(10_000)
+    expect(store.getState().plinko.activeBets).toEqual({})
   })
 })

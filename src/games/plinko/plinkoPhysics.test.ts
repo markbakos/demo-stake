@@ -33,6 +33,16 @@ function simulate(rows: RowCount, targets: readonly number[], seed: number) {
 }
 
 describe('targeted Plinko physics', () => {
+  it('reports an unfinished round when the engine is destroyed', () => {
+    const landings: Landing[] = []
+    const board = createPlinkoPhysics(8, (landing) => landings.push(landing))
+    board.dropBall({ roundId: 'unmounted', targetBin: 0, path: createPathForTarget(8, 0) })
+
+    board.destroy()
+
+    expect(landings).toMatchObject([{ roundId: 'unmounted', isConfirmed: false }])
+  })
+
   it('physically lands in every requested bin for every row count', () => {
     for (let rows = 8; rows <= 16; rows += 1) {
       const targets = Array.from({ length: rows + 1 }, (_, target) => target)
