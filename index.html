@@ -3,11 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Play a free Plinko demo with 10,000 virtual credits. Choose 8–16 rows and 3 risk levels in a responsive, no-sign-up casino-style game." />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="theme-color" content="#1a2c38" />
-    <title>Demo Casino</title>
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="Demo Casino" />
+    <meta property="og:title" content="Free Plinko Demo | Demo Casino" />
+    <meta property="og:description" content="Play Plinko free with 10,000 virtual credits, 8–16 rows, and low, medium, or high risk. No account required." />
+    <meta property="og:image" content="/plinko-demo-preview.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A red Plinko ball falling through white pegs toward colorful multiplier bins" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Free Plinko Demo | Demo Casino" />
+    <meta name="twitter:description" content="Play Plinko free with virtual credits. No account, download, deposit, or real money." />
+    <meta name="twitter:image" content="/plinko-demo-preview.jpg" />
+    <meta name="twitter:image:alt" content="A red Plinko ball falling through white pegs toward colorful multiplier bins" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": ["VideoGame", "WebApplication"],
+        "name": "Demo Casino Plinko",
+        "description": "A free browser Plinko demo played with virtual credits and no account or download.",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Any modern web browser",
+        "gamePlatform": "Web browser",
+        "playMode": "SinglePlayer",
+        "genre": ["Plinko", "Casino-style demo"],
+        "isAccessibleForFree": true,
+        "image": "/plinko-demo-preview.jpg"
+      }
+    </script>
+
+    <title>Free Plinko Demo | Demo Casino</title>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>This free Plinko demo requires JavaScript to run the physics-powered game.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

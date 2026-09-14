@@ -133,8 +133,6 @@ export function PlinkoPage() {
 
   return (
     <main id="main-content" className="px-2 py-3 sm:px-5 sm:py-6 lg:py-8">
-      <h1 className="sr-only">Plinko</h1>
-
       <div className="mx-auto max-w-6xl overflow-hidden rounded bg-[#0f192a] shadow-xl shadow-black/25 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]">
         <PlinkoBoard
           ref={canvasRef}
@@ -293,6 +291,25 @@ export function PlinkoPage() {
           </div>
         </aside>
       </div>
+
+      <section className="mx-auto max-w-4xl px-2 py-10 text-[#b1bad3] sm:py-14" aria-labelledby="plinko-demo-title">
+        <h1 id="plinko-demo-title" className="scroll-mt-20 text-balance text-3xl font-bold text-white sm:text-4xl">
+          Play a Free Plinko Demo
+        </h1>
+        <p className="mt-4 text-pretty leading-7">
+          Drop balls through a physics-powered Plinko board and play instantly with 10,000 virtual demo credits—no account or download required. Choose 8–16 rows and Low, Medium, or High risk to explore different multiplier layouts.
+        </p>
+        <p className="mt-3 text-pretty leading-7">
+          Looking for a <span translate="no">Stake</span>-style Plinko demo? This is an independent casino-style game for entertainment and testing only. It is not affiliated with <span translate="no">Stake</span>, and its demo credits have no cash value.
+        </p>
+
+        <h2 className="mt-8 text-balance text-xl font-bold text-white sm:text-2xl">How to Play Demo Plinko</h2>
+        <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">1. Set Your Bet</strong><span className="mt-1 block text-sm leading-6">Choose how many virtual credits to play.</span></li>
+          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">2. Pick Risk & Rows</strong><span className="mt-1 block text-sm leading-6">Select a risk level and 8–16 board rows.</span></li>
+          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">3. Drop the Ball</strong><span className="mt-1 block text-sm leading-6">Watch the ball reach a multiplier bin and update your demo balance.</span></li>
+        </ol>
+      </section>
 
       <dialog
         ref={settingsDialogRef}
