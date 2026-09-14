@@ -29,7 +29,7 @@ export function PlinkoPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const settingsDialogRef = useRef<HTMLDialogElement>(null)
   const [mode, setMode] = useState<Mode>('manual')
-  const [betAmount, setBetAmount] = useState(1)
+  const [betAmountInput, setBetAmountInput] = useState('1')
   const [risk, setRisk] = useState<Risk>('medium')
   const [rows, setRows] = useState<RowCount>(16)
   const [luck, setLuck] = useState<Luck>('normal')
@@ -39,6 +39,17 @@ export function PlinkoPage() {
   const activeRoundCount = useSelector(selectActiveBetCount)
   const dispatch = useDispatch<AppDispatch>()
   const payouts = binPayouts[rows][risk]
+  const parsedBetAmount = Number(betAmountInput)
+  const betAmount = betAmountInput !== '' && Number.isFinite(parsedBetAmount) && parsedBetAmount >= 0
+    ? parsedBetAmount
+    : null
+  const betAmountError = betAmountInput === ''
+    ? 'Enter a bet amount.'
+    : betAmount === null
+      ? 'Enter a valid bet amount.'
+      : betAmount > balance
+        ? 'Bet amount exceeds your balance.'
+        : undefined
 
   useEffect(() => {
     dispatch(cancelAllPlinkoBets())
@@ -55,13 +66,14 @@ export function PlinkoPage() {
   }, [dispatch])
 
   const dropBall = useTargetedPlinko(canvasRef, rows, handleLanding)
-  const isBetUnaffordable = betAmount > balance
+  const isBetUnaffordable = betAmount !== null && betAmount > balance
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
 
     const developerWindow = window as Window & { dropPlinko?: (targetBin: number) => boolean }
     developerWindow.dropPlinko = (targetBin) => {
+      if (betAmount === null) return false
       if (!Number.isInteger(targetBin) || targetBin < 0 || targetBin > rows) {
         throw new RangeError(`Target bin must be an integer from 0 through ${rows}.`)
       }
@@ -81,11 +93,16 @@ export function PlinkoPage() {
   }, [betAmount, dispatch, dropBall, payouts, rows])
 
   function handleBetAmount(event: ChangeEvent<HTMLInputElement>) {
-    const nextAmount = event.currentTarget.valueAsNumber
-    setBetAmount(Number.isFinite(nextAmount) ? Math.max(0, nextAmount) : 0)
+    setBetAmountInput(event.currentTarget.value)
+  }
+
+  function adjustBetAmount(multiplier: number) {
+    if (betAmount === null) return
+    setBetAmountInput(String(Number((betAmount * multiplier).toFixed(2))))
   }
 
   function handleBet() {
+    if (betAmount === null) return
     const roundId = crypto.randomUUID()
     const path = createOutcomePath(rows, luck)
     const targetBin = getTargetBin(path)
@@ -141,31 +158,34 @@ export function PlinkoPage() {
                 step="0.01"
                 inputMode="decimal"
                 autoComplete="off"
-                value={betAmount}
+                placeholder="0.00"
+                value={betAmountInput}
                 onChange={handleBetAmount}
-                aria-invalid={isBetUnaffordable}
-                aria-describedby={isBetUnaffordable ? 'bet-amount-error' : undefined}
+                aria-invalid={Boolean(betAmountError)}
+                aria-describedby={betAmountError ? 'bet-amount-error' : undefined}
                 className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-white focus:outline-none"
               />
               <button
                 type="button"
                 aria-label="Halve bet amount"
-                onClick={() => setBetAmount((amount) => Number((amount / 2).toFixed(2)))}
-                className="bg-[#2f4553] px-4 font-bold text-white transition-colors hover:bg-[#3b5565] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#00e701]"
+                disabled={betAmount === null}
+                onClick={() => adjustBetAmount(0.5)}
+                className="bg-[#2f4553] px-4 font-bold text-white transition-colors hover:bg-[#3b5565] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#00e701] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 1/2
               </button>
               <button
                 type="button"
                 aria-label="Double bet amount"
-                onClick={() => setBetAmount((amount) => Number((amount * 2).toFixed(2)))}
-                className="border-l-2 border-[#213743] bg-[#2f4553] px-4 text-sm font-bold text-white transition-colors hover:bg-[#3b5565] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#00e701]"
+                disabled={betAmount === null}
+                onClick={() => adjustBetAmount(2)}
+                className="border-l-2 border-[#213743] bg-[#2f4553] px-4 text-sm font-bold text-white transition-colors hover:bg-[#3b5565] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#00e701] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 2×
               </button>
             </div>
-            {isBetUnaffordable ? (
-              <p id="bet-amount-error" className="mt-1 text-xs text-red-400">Bet amount exceeds your balance.</p>
+            {betAmountError ? (
+              <p id="bet-amount-error" className="mt-1 text-xs text-red-400">{betAmountError}</p>
             ) : null}
           </div>
 
@@ -226,7 +246,7 @@ export function PlinkoPage() {
 
           <button
             type="button"
-            disabled={mode === 'auto' || isBetUnaffordable}
+            disabled={mode === 'auto' || betAmount === null || isBetUnaffordable}
             onClick={handleBet}
             className="rounded bg-[#1475e1] py-3 font-semibold text-white transition-colors hover:bg-[#1164c1] active:bg-[#0f56a5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]"
           >
