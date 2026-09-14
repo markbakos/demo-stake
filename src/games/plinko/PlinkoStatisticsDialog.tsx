@@ -41,9 +41,9 @@ export function PlinkoStatisticsDialog({ ref, results }: PlinkoStatisticsDialogP
     <dialog
       ref={ref}
       aria-labelledby="statistics-title"
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[min(36rem,calc(100%-2rem))] overscroll-contain rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70"
+      className="m-auto max-h-[calc(100dvh-1rem)] w-[min(36rem,calc(100%-1rem))] overflow-y-auto overscroll-contain rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(36rem,calc(100%-2rem))]"
     >
-      <form method="dialog" className="p-5">
+      <form method="dialog" className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 id="statistics-title" className="text-xl font-bold text-balance">Live Statistics</h2>

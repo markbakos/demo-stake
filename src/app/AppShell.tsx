@@ -8,7 +8,7 @@ import {
   Menu,
   X,
 } from 'lucide-react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { NavLink, Outlet } from 'react-router-dom'
 import { addCredits, CREDIT_AMOUNTS, selectBalance, type AppDispatch, type CreditAmount } from './store'
@@ -23,10 +23,17 @@ const creditFormatter = new Intl.NumberFormat('en-US', {
 const addAmountFormatter = new Intl.NumberFormat('en-US')
 
 export function AppShell() {
-  const [isRailOpen, setIsRailOpen] = useState(() => !window.matchMedia('(max-width: 767px)').matches)
+  const [isRailOpen, setIsRailOpen] = useState(() => window.matchMedia('(min-width: 1280px)').matches)
   const addBalanceDialogRef = useRef<HTMLDialogElement>(null)
   const balance = useSelector(selectBalance)
   const dispatch = useDispatch<AppDispatch>()
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1280px)')
+    const handleBreakpointChange = (event: MediaQueryListEvent) => setIsRailOpen(event.matches)
+    desktop.addEventListener('change', handleBreakpointChange)
+    return () => desktop.removeEventListener('change', handleBreakpointChange)
+  }, [])
 
   function handleAddCredits(amount: CreditAmount) {
     dispatch(addCredits(amount))
@@ -42,7 +49,7 @@ export function AppShell() {
       </a>
 
       <header className="sticky top-0 z-30 h-16 bg-[#1a2c38] shadow-lg shadow-black/30">
-        <div className="relative flex h-full items-center px-4 sm:px-6">
+        <div className="relative flex h-full items-center px-3 sm:px-6">
           <button
             type="button"
             aria-controls="game-navigation"
@@ -53,18 +60,18 @@ export function AppShell() {
           >
             <Menu aria-hidden="true" className="size-5" />
           </button>
-          <span className="ml-3 text-xl font-extrabold tracking-tight" translate="no">
+          <span className="ml-3 hidden text-xl font-extrabold tracking-tight sm:inline" translate="no">
             Casino
           </span>
-          <div className="ml-auto flex overflow-hidden rounded shadow-md sm:absolute sm:left-1/2 sm:ml-0 sm:-translate-x-1/2">
-            <div className="flex items-center gap-2 bg-[#0f212e] px-3 py-2 text-sm font-semibold tabular-nums sm:text-base">
+          <div className="ml-auto flex min-w-0 overflow-hidden rounded shadow-md sm:absolute sm:left-1/2 sm:ml-0 sm:-translate-x-1/2">
+            <div className="flex min-w-0 items-center gap-1.5 bg-[#0f212e] px-2.5 py-2 text-sm font-semibold tabular-nums sm:gap-2 sm:px-3 sm:text-base">
               <CircleDollarSign aria-hidden="true" className="size-4 text-[#b1bad3]" />
               <span aria-live="polite">{creditFormatter.format(balance)}</span>
             </div>
             <button
               type="button"
               onClick={() => addBalanceDialogRef.current?.showModal()}
-              className="bg-[#1475e1] px-3 py-2 text-sm font-semibold transition-colors hover:bg-[#1164c1] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-white sm:px-5 sm:text-base"
+              className="shrink-0 bg-[#1475e1] px-3 py-2 text-sm font-semibold transition-colors hover:bg-[#1164c1] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-white sm:px-5 sm:text-base"
             >
               Add
             </button>
@@ -73,16 +80,24 @@ export function AppShell() {
       </header>
 
       <div
-        className={`grid min-h-[calc(100dvh-4rem)] transition-[grid-template-columns] duration-200 ${
+        className={`relative grid min-h-[calc(100dvh-4rem)] grid-cols-1 transition-[grid-template-columns] duration-200 ${
           isRailOpen
-            ? 'grid-cols-[4rem_minmax(0,1fr)] md:grid-cols-[15rem_minmax(0,1fr)]'
-            : 'grid-cols-[4rem_minmax(0,1fr)]'
+            ? 'xl:grid-cols-[15rem_minmax(0,1fr)]'
+            : 'xl:grid-cols-[4rem_minmax(0,1fr)]'
         }`}
       >
+        {isRailOpen ? (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setIsRailOpen(false)}
+            className="fixed inset-x-0 bottom-0 top-16 z-10 bg-black/55 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#00e701] xl:hidden"
+          />
+        ) : null}
         <aside
           id="game-navigation"
-          className={`flex min-h-full flex-col border-r border-white/5 bg-[#0f212e] px-2 py-5 shadow-xl shadow-black/10 ${
-            isRailOpen ? 'max-md:absolute max-md:inset-y-0 max-md:z-20 max-md:w-60' : ''
+          className={`min-h-full flex-col overflow-y-auto overscroll-contain border-r border-white/5 bg-[#0f212e] px-2 py-5 shadow-xl shadow-black/10 xl:flex ${
+            isRailOpen ? 'fixed bottom-0 left-0 top-16 z-20 flex w-60 xl:static xl:w-auto' : 'hidden'
           }`}
         >
           <div className="mb-2 flex items-center justify-between px-2">
@@ -137,8 +152,8 @@ export function AppShell() {
 
         <div className="flex min-w-0 flex-col">
           <Outlet />
-          <footer className="mt-auto px-4 pb-5 text-sm text-[#b1bad3]">
-            <div className="mx-auto flex max-w-6xl justify-end gap-5 border-t border-white/10 pt-4">
+          <footer className="mt-auto px-3 pb-5 text-sm text-[#b1bad3] sm:px-4">
+            <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-5 gap-y-3 border-t border-white/10 pt-4 sm:justify-end">
               <a href={PORTFOLIO_URL} target="_blank" rel="noreferrer" className="flex items-center gap-2 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]">
                 <BriefcaseBusiness aria-hidden="true" className="size-5" />
                 Mark Bakos
@@ -158,9 +173,9 @@ export function AppShell() {
         onClick={(event) => {
           if (event.target === event.currentTarget) event.currentTarget.close()
         }}
-        className="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-lg border border-white/10 bg-[#213743] p-0 text-white shadow-2xl shadow-black/50 backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+        className="m-auto max-h-[calc(100dvh-1rem)] w-[calc(100%_-_1rem)] max-w-md overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-[#213743] p-0 text-white shadow-2xl shadow-black/50 backdrop:bg-black/70 backdrop:backdrop-blur-sm sm:w-[calc(100%_-_2rem)]"
       >
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           <div className="flex items-center justify-between gap-4">
             <h2 id="add-balance-title" className="text-lg font-semibold">Add Balance</h2>
             <button

@@ -132,7 +132,7 @@ export function PlinkoPage() {
   }
 
   return (
-    <main id="main-content" className="px-3 py-5 sm:px-5 lg:py-8">
+    <main id="main-content" className="px-2 py-3 sm:px-5 sm:py-6 lg:py-8">
       <h1 className="sr-only">Plinko</h1>
 
       <div className="mx-auto max-w-6xl overflow-hidden rounded bg-[#0f192a] shadow-xl shadow-black/25 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]">
@@ -145,8 +145,8 @@ export function PlinkoPage() {
           rows={rows}
         />
 
-        <aside className="flex flex-col gap-5 bg-[#213743] p-3 sm:p-4 lg:row-start-1 lg:min-h-[640px]">
-          <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f212e] p-1" aria-label="Bet mode">
+        <aside className="grid grid-cols-1 gap-4 bg-[#213743] p-3 sm:grid-cols-2 sm:p-4 lg:row-start-1 lg:min-h-[640px] lg:flex lg:flex-col lg:gap-5">
+          <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f212e] p-1 sm:col-span-2 lg:col-span-1" aria-label="Bet mode">
             {(['manual', 'auto'] as const).map((value) => (
               <button
                 key={value}
@@ -268,12 +268,12 @@ export function PlinkoPage() {
             type="button"
             disabled={mode === 'auto' || betAmount === null || isBetUnaffordable}
             onClick={handleBet}
-            className="rounded bg-[#1475e1] py-3 font-semibold text-white transition-colors hover:bg-[#1164c1] active:bg-[#0f56a5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]"
+            className="rounded bg-[#1475e1] py-3 font-semibold text-white transition-colors hover:bg-[#1164c1] active:bg-[#0f56a5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3] sm:col-span-2 lg:col-span-1"
           >
             {mode === 'manual' ? 'Bet' : 'Auto Betting In M4'}
           </button>
 
-          <div className="mt-auto flex items-center gap-3 border-t border-[#2f4553] pt-3">
+          <div className="mt-auto flex items-center gap-3 border-t border-[#2f4553] pt-3 sm:col-span-2 lg:col-span-1">
             <button
               type="button"
               aria-label="Game settings"
@@ -297,9 +297,9 @@ export function PlinkoPage() {
       <dialog
         ref={settingsDialogRef}
         aria-labelledby="settings-title"
-        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] overscroll-contain rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70"
+        className="m-auto max-h-[calc(100dvh-1rem)] w-[min(32rem,calc(100%-1rem))] overflow-y-auto overscroll-contain rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(32rem,calc(100%-2rem))]"
       >
-        <form method="dialog" className="p-5">
+        <form method="dialog" className="p-4 sm:p-5">
           <div className="flex items-start justify-between gap-4">
             <h2 id="settings-title" className="text-xl font-bold">Game Settings</h2>
             <button
@@ -313,7 +313,7 @@ export function PlinkoPage() {
 
           <fieldset className="mt-5">
             <legend className="text-sm font-semibold text-[#b1bad3]">Luck</legend>
-            <div className="mt-2 grid grid-cols-3 gap-2">
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {LUCK_OPTIONS.map((option) => (
                 <label
                   key={option.value}

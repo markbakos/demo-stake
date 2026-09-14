@@ -17,7 +17,7 @@ function formatMultiplier(multiplier: number) {
 
 export function PlinkoBoard({ ref, binHit, payouts, recentBins, risk, rows }: PlinkoBoardProps) {
   return (
-    <section className="relative flex min-w-0 flex-col bg-[#0f192a] px-3 pb-4 sm:px-5 lg:col-start-2 lg:row-start-1" aria-label="Plinko board">
+    <section className="relative flex min-w-0 flex-col bg-[#0f192a] px-1 pb-3 sm:px-5 sm:pb-4 lg:col-start-2 lg:row-start-1" aria-label="Plinko board">
       <div className="relative mx-auto w-full max-w-[760px]">
         <canvas
           ref={ref}
@@ -42,7 +42,7 @@ export function PlinkoBoard({ ref, binHit, payouts, recentBins, risk, rows }: Pl
         ) : null}
       </div>
 
-      <div className="relative z-10 -mt-4 mx-auto flex h-8 w-[84%] gap-[1%]" aria-label={`${payouts.length} multiplier bins`}>
+      <div className="relative z-10 -mt-3 mx-auto flex h-7 w-[84%] gap-[1%] sm:-mt-4 sm:h-8" aria-label={`${payouts.length} multiplier bins`}>
         {payouts.map((payout, index) => {
           const color = getBinColor(index, payouts.length)
           return (
