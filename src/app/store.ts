@@ -18,6 +18,15 @@ type PlinkoBetSnapshot = {
   path: PlinkoDirection[]
 }
 
+export type PlinkoResult = PlinkoBetSnapshot & {
+  id: string
+  payout: number
+  profit: number
+  settledAt: number
+}
+
+const MAX_PLINKO_RESULTS = 250
+
 const initialState: WalletState = {
   balance: 10_000,
 }
@@ -91,7 +100,10 @@ export const walletReducer = walletSlice.reducer
 
 const plinkoSlice = createSlice({
   name: 'plinko',
-  initialState: { activeBets: {} as Record<string, PlinkoBetSnapshot> },
+  initialState: {
+    activeBets: {} as Record<string, PlinkoBetSnapshot>,
+    results: [] as PlinkoResult[],
+  },
   reducers: {
     betAccepted(state, action: PayloadAction<{ roundId: string; bet: PlinkoBetSnapshot }>) {
       state.activeBets[action.payload.roundId] = action.payload.bet
@@ -99,10 +111,15 @@ const plinkoSlice = createSlice({
     betRemoved(state, action: PayloadAction<string>) {
       delete state.activeBets[action.payload]
     },
+    betSettled(state, action: PayloadAction<PlinkoResult>) {
+      delete state.activeBets[action.payload.id]
+      state.results.push(action.payload)
+      if (state.results.length > MAX_PLINKO_RESULTS) state.results.shift()
+    },
   },
 })
 
-const { betAccepted, betRemoved } = plinkoSlice.actions
+const { betAccepted, betRemoved, betSettled } = plinkoSlice.actions
 
 export const createAppStore = (storage: AppStorage | undefined = getBrowserStorage()) => {
   const appStore = configureStore({
@@ -112,7 +129,7 @@ export const createAppStore = (storage: AppStorage | undefined = getBrowserStora
     },
     preloadedState: {
       wallet: { balance: readBalance(storage) },
-      plinko: { activeBets: {} },
+      plinko: { activeBets: {}, results: [] },
     },
   })
 
@@ -127,6 +144,7 @@ export type AppDispatch = typeof store.dispatch
 
 export const selectBalance = (state: RootState) => state.wallet.balance
 export const selectActiveBetCount = (state: RootState) => Object.keys(state.plinko.activeBets).length
+export const selectPlinkoResults = (state: RootState) => state.plinko.results
 
 export const acceptPlinkoBet = (
   roundId: string,
@@ -162,8 +180,15 @@ export const settlePlinkoBet = (roundId: string, bin: number) => (dispatch: AppD
   const bet = getState().plinko.activeBets[roundId]
   if (!bet || !Number.isInteger(bin) || bin !== bet.targetBin) return false
 
-  dispatch(betRemoved(roundId))
-  dispatch(payoutCredited(bet.wager * bet.multiplier))
+  const payout = bet.wager * bet.multiplier
+  dispatch(betSettled({
+    ...bet,
+    id: roundId,
+    payout,
+    profit: payout - bet.wager,
+    settledAt: Date.now(),
+  }))
+  dispatch(payoutCredited(payout))
   return true
 }
 

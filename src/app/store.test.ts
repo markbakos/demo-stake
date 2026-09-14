@@ -29,10 +29,18 @@ describe('walletReducer', () => {
     expect(store.dispatch(settlePlinkoBet('round-1', 0))).toBe(false)
 
     expect(store.getState().wallet.balance).toBe(10_100)
+    expect(store.getState().plinko.results).toMatchObject([{
+      id: 'round-1',
+      wager: 100,
+      multiplier: 2,
+      payout: 200,
+      profit: 100,
+    }])
 
     expect(store.dispatch(acceptPlinkoBet('round-2', 100, 1, 0.5, rightPath))).toBe(true)
     expect(store.dispatch(settlePlinkoBet('round-2', 1))).toBe(true)
     expect(store.getState().wallet.balance).toBe(10_050)
+    expect(store.getState().plinko.results).toHaveLength(2)
   })
 
   it('loads and persists a validated wallet balance', () => {

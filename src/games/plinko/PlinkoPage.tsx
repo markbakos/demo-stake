@@ -8,10 +8,12 @@ import {
   cancelPlinkoBet,
   selectActiveBetCount,
   selectBalance,
+  selectPlinkoResults,
   settlePlinkoBet,
   type AppDispatch,
 } from '../../app/store'
 import { PlinkoBoard } from './PlinkoBoard'
+import { PlinkoStatisticsDialog } from './PlinkoStatisticsDialog'
 import {
   playPlinkoLanding,
   playPlinkoPegHit,
@@ -34,6 +36,7 @@ const LUCK_OPTIONS: readonly { value: Luck; label: string; description: string }
 export function PlinkoPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const settingsDialogRef = useRef<HTMLDialogElement>(null)
+  const statisticsDialogRef = useRef<HTMLDialogElement>(null)
   const [mode, setMode] = useState<Mode>('manual')
   const [betAmountInput, setBetAmountInput] = useState('1')
   const [risk, setRisk] = useState<Risk>('medium')
@@ -44,6 +47,7 @@ export function PlinkoPage() {
   const [binHit, setBinHit] = useState<{ bin: number; roundId: string }>()
   const balance = useSelector(selectBalance)
   const activeRoundCount = useSelector(selectActiveBetCount)
+  const results = useSelector(selectPlinkoResults)
   const dispatch = useDispatch<AppDispatch>()
   const payouts = binPayouts[rows][risk]
   const parsedBetAmount = Number(betAmountInput)
@@ -272,7 +276,12 @@ export function PlinkoPage() {
             >
               <Settings aria-hidden="true" className="size-6" />
             </button>
-            <button type="button" disabled aria-label="Live statistics available later" className="rounded-full p-2 text-slate-300 opacity-60">
+            <button
+              type="button"
+              aria-label="Open live statistics"
+              onClick={() => statisticsDialogRef.current?.showModal()}
+              className="rounded-full p-2 text-slate-300 transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+            >
               <BarChart3 aria-hidden="true" className="size-6" />
             </button>
           </div>
@@ -350,6 +359,8 @@ export function PlinkoPage() {
           </fieldset>
         </form>
       </dialog>
+
+      <PlinkoStatisticsDialog ref={statisticsDialogRef} results={results} />
 
     </main>
   )
