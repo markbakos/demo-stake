@@ -1,4 +1,5 @@
 import { configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { getTargetBin, type PlinkoDirection } from '../games/plinko/plinkoPath'
 
 export const CREDIT_AMOUNTS = [100, 500, 1_000, 10_000] as const
 export type CreditAmount = (typeof CREDIT_AMOUNTS)[number]
@@ -12,7 +13,9 @@ type WalletState = {
 
 type PlinkoBetSnapshot = {
   wager: number
-  payouts: number[]
+  targetBin: number
+  multiplier: number
+  path: PlinkoDirection[]
 }
 
 const initialState: WalletState = {
@@ -125,7 +128,13 @@ export type AppDispatch = typeof store.dispatch
 export const selectBalance = (state: RootState) => state.wallet.balance
 export const selectActiveBetCount = (state: RootState) => Object.keys(state.plinko.activeBets).length
 
-export const acceptPlinkoBet = (roundId: string, wager: number, payouts: readonly number[]) => (
+export const acceptPlinkoBet = (
+  roundId: string,
+  wager: number,
+  targetBin: number,
+  multiplier: number,
+  path: readonly PlinkoDirection[],
+) => (
   dispatch: AppDispatch,
   getState: () => RootState,
 ) => {
@@ -135,22 +144,26 @@ export const acceptPlinkoBet = (roundId: string, wager: number, payouts: readonl
     !Number.isFinite(wager) ||
     wager < 0 ||
     wager > selectBalance(getState()) ||
-    payouts.length === 0 ||
-    payouts.some((payout) => !Number.isFinite(payout) || payout < 0)
+    !Number.isInteger(targetBin) ||
+    targetBin < 0 ||
+    !Number.isFinite(multiplier) ||
+    multiplier < 0 ||
+    path.length === 0 ||
+    targetBin > path.length ||
+    getTargetBin(path) !== targetBin
   ) return false
 
   dispatch(betPlaced(wager))
-  dispatch(betAccepted({ roundId, bet: { wager, payouts: [...payouts] } }))
+  dispatch(betAccepted({ roundId, bet: { wager, targetBin, multiplier, path: [...path] } }))
   return true
 }
 
 export const settlePlinkoBet = (roundId: string, bin: number) => (dispatch: AppDispatch, getState: () => RootState) => {
   const bet = getState().plinko.activeBets[roundId]
-  const multiplier = bet?.payouts[bin]
-  if (!bet || !Number.isInteger(bin) || !Number.isFinite(multiplier) || multiplier < 0) return false
+  if (!bet || !Number.isInteger(bin) || bin !== bet.targetBin) return false
 
   dispatch(betRemoved(roundId))
-  dispatch(payoutCredited(bet.wager * multiplier))
+  dispatch(payoutCredited(bet.wager * bet.multiplier))
   return true
 }
 

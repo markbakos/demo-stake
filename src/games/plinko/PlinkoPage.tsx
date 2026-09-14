@@ -12,7 +12,9 @@ import {
 } from '../../app/store'
 import { PlinkoBoard } from './PlinkoBoard'
 import { ROW_OPTIONS, binPayouts, type Risk, type RowCount } from './plinkoConfig'
-import { useNaturalPlinko } from './useNaturalPlinko'
+import { createRandomPath, getTargetBin } from './plinkoPath'
+import type { Landing } from './plinkoPhysics'
+import { useTargetedPlinko } from './useTargetedPlinko'
 
 type Mode = 'manual' | 'auto'
 
@@ -28,12 +30,16 @@ export function PlinkoPage() {
   const dispatch = useDispatch<AppDispatch>()
   const payouts = binPayouts[rows][risk]
 
-  const handleLanding = useCallback((roundId: string, bin: number) => {
-    if (!dispatch(settlePlinkoBet(roundId, bin))) return
-    setRecentBins((current) => [bin, ...current].slice(0, 4))
+  const handleLanding = useCallback(({ isConfirmed, roundId, requestedBin, observedBin }: Landing) => {
+    if (!isConfirmed || requestedBin !== observedBin) {
+      dispatch(cancelPlinkoBet(roundId))
+      return
+    }
+    if (!dispatch(settlePlinkoBet(roundId, observedBin))) return
+    setRecentBins((current) => [observedBin, ...current].slice(0, 4))
   }, [dispatch])
 
-  const dropNaturalBall = useNaturalPlinko(canvasRef, rows, handleLanding)
+  const dropBall = useTargetedPlinko(canvasRef, rows, handleLanding)
   const isBetUnaffordable = betAmount > balance
 
   function handleBetAmount(event: ChangeEvent<HTMLInputElement>) {
@@ -43,9 +49,11 @@ export function PlinkoPage() {
 
   function handleBet() {
     const roundId = crypto.randomUUID()
-    if (!dispatch(acceptPlinkoBet(roundId, betAmount, payouts))) return
+    const path = createRandomPath(rows)
+    const targetBin = getTargetBin(path)
+    if (!dispatch(acceptPlinkoBet(roundId, betAmount, targetBin, payouts[targetBin], path))) return
 
-    if (!dropNaturalBall(roundId)) dispatch(cancelPlinkoBet(roundId))
+    if (!dropBall({ roundId, targetBin, path })) dispatch(cancelPlinkoBet(roundId))
   }
 
   return (

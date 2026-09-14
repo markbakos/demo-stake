@@ -19,17 +19,17 @@ describe('walletReducer', () => {
 
   it('rejects insufficient funds and settles a snapshotted bet once', () => {
     const store = createAppStore()
-    const payouts = [2, 0.5]
+    const leftPath = ['left'] as const
+    const rightPath = ['right'] as const
 
-    expect(store.dispatch(acceptPlinkoBet('too-expensive', 10_001, payouts))).toBe(false)
-    expect(store.dispatch(acceptPlinkoBet('round-1', 100, payouts))).toBe(true)
-    payouts[0] = 99
+    expect(store.dispatch(acceptPlinkoBet('too-expensive', 10_001, 0, 2, leftPath))).toBe(false)
+    expect(store.dispatch(acceptPlinkoBet('round-1', 100, 0, 2, leftPath))).toBe(true)
     expect(store.dispatch(settlePlinkoBet('round-1', 0))).toBe(true)
     expect(store.dispatch(settlePlinkoBet('round-1', 0))).toBe(false)
 
     expect(store.getState().wallet.balance).toBe(10_100)
 
-    expect(store.dispatch(acceptPlinkoBet('round-2', 100, [2, 0.5]))).toBe(true)
+    expect(store.dispatch(acceptPlinkoBet('round-2', 100, 1, 0.5, rightPath))).toBe(true)
     expect(store.dispatch(settlePlinkoBet('round-2', 1))).toBe(true)
     expect(store.getState().wallet.balance).toBe(10_050)
   })

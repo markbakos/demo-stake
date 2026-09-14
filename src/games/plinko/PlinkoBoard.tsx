@@ -23,11 +23,11 @@ export function PlinkoBoard({ ref, payouts, recentBins, risk, rows }: PlinkoBoar
           width={BOARD_WIDTH}
           height={BOARD_HEIGHT}
           className="block aspect-[760/570] h-auto w-full"
-          aria-label={`${rows}-row ${risk}-risk Plinko calibration board`}
+          aria-label={`${rows}-row ${risk}-risk Plinko board`}
         />
 
         {recentBins.length > 0 ? (
-          <div className="absolute right-[2%] top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm text-[clamp(0.45rem,1.5vw,0.75rem)] font-bold text-slate-950 shadow-lg" aria-label="Recent calibration results">
+          <div className="absolute right-[2%] top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-sm text-[clamp(0.45rem,1.5vw,0.75rem)] font-bold text-slate-950 shadow-lg" aria-label="Recent results">
             {recentBins.map((bin, index) => (
               <span
                 key={`${bin}-${index}`}
