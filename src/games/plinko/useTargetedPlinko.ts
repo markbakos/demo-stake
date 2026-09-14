@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import type { RowCount } from './plinkoConfig'
 import { BOARD_HEIGHT, BOARD_WIDTH } from './plinkoGeometry'
-import { createPlinkoPhysics, type DropBallInput, type Landing } from './plinkoPhysics'
+import { createPlinkoPhysics, type DropBallInput, type Landing, type PegHit } from './plinkoPhysics'
 
 type RunningBoard = ReturnType<typeof createPlinkoPhysics>
 
@@ -11,6 +11,7 @@ export function useTargetedPlinko(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   rows: RowCount,
   onLanding: (landing: Landing) => void,
+  onPegHit?: (hit: PegHit) => void,
 ) {
   const boardRef = useRef<RunningBoard>(null)
 
@@ -18,7 +19,7 @@ export function useTargetedPlinko(
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const board = createPlinkoPhysics(rows, onLanding)
+    const board = createPlinkoPhysics(rows, onLanding, onPegHit)
     const render = Render.create({
       canvas,
       engine: board.engine,
@@ -42,7 +43,7 @@ export function useTargetedPlinko(
       board.destroy()
       canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
     }
-  }, [canvasRef, onLanding, rows])
+  }, [canvasRef, onLanding, onPegHit, rows])
 
   return useCallback((input: DropBallInput) => boardRef.current?.dropBall(input) ?? false, [])
 }

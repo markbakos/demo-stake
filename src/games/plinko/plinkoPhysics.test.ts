@@ -33,6 +33,18 @@ function simulate(rows: RowCount, targets: readonly number[], seed: number) {
 }
 
 describe('targeted Plinko physics', () => {
+  it('reports physical peg collisions for sound feedback', () => {
+    const pegHits: number[] = []
+    const board = createPlinkoPhysics(8, () => undefined, ({ depth }) => pegHits.push(depth))
+    board.dropBall({ roundId: 'sound', targetBin: 4, path: createPathForTarget(8, 4) })
+
+    for (let step = 0; step < 900 && pegHits.length < 2; step += 1) Engine.update(board.engine, 1000 / 60)
+    board.destroy()
+
+    expect(pegHits.length).toBeGreaterThan(1)
+    expect(pegHits.every((depth) => depth >= 0 && depth <= 1)).toBe(true)
+  })
+
   it('reports an unfinished round when the engine is destroyed', () => {
     const landings: Landing[] = []
     const board = createPlinkoPhysics(8, (landing) => landings.push(landing))

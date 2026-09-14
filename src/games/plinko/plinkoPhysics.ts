@@ -7,6 +7,7 @@ const BALL_CATEGORY = 0x0002
 const BOARD_CATEGORY = 0x0004
 const SENSOR_CATEGORY = 0x0008
 const BALL_LABEL_PREFIX = 'plinko-ball:'
+const PEG_LABEL = 'plinko-peg'
 const SENSOR_LABEL_PREFIX = 'plinko-sensor:'
 const MAX_DROP_MILLISECONDS = 12_000
 
@@ -17,6 +18,7 @@ type ActiveBall = {
   startedAt: number
   maxY: number
   nextRow: number
+  lastPegHitAt: number
   stalledMilliseconds: number
 }
 
@@ -34,13 +36,20 @@ export type Landing = {
   position: Readonly<{ x: number; y: number }>
 }
 
-export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing) => void) {
+export type PegHit = Readonly<{ depth: number; speed: number }>
+
+export function createPlinkoPhysics(
+  rows: RowCount,
+  onLanding: (landing: Landing) => void,
+  onPegHit?: (hit: PegHit) => void,
+) {
   const geometry = createPlinkoGeometry(rows)
   const engine = Engine.create({ gravity: { x: 0, y: 1.15 } })
   const activeBalls = new Map<number, ActiveBall>()
 
   const boardBodies = geometry.pegs.map((peg) => Bodies.circle(peg.x, peg.y, geometry.pegRadius, {
     isStatic: true,
+    label: PEG_LABEL,
     render: { fillStyle: '#f8fafc' },
     collisionFilter: { category: BOARD_CATEGORY, mask: BALL_CATEGORY },
   }))
@@ -106,10 +115,27 @@ export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing
 
   function handleCollision(event: IEventCollision<Engine>) {
     for (const pair of event.pairs) {
-      const ballBody = pair.bodyA.label.startsWith(BALL_LABEL_PREFIX) ? pair.bodyA : pair.bodyB
-      const sensorBody = pair.bodyA.label.startsWith(SENSOR_LABEL_PREFIX) ? pair.bodyA : pair.bodyB
+      const ballBody = pair.bodyA.label.startsWith(BALL_LABEL_PREFIX)
+        ? pair.bodyA
+        : pair.bodyB.label.startsWith(BALL_LABEL_PREFIX)
+          ? pair.bodyB
+          : undefined
+      if (!ballBody) continue
+
       const activeBall = activeBalls.get(ballBody.id)
-      if (!activeBall || !sensorBody.label.startsWith(SENSOR_LABEL_PREFIX)) continue
+      if (!activeBall) continue
+
+      const pegBody = pair.bodyA.label === PEG_LABEL ? pair.bodyA : pair.bodyB.label === PEG_LABEL ? pair.bodyB : undefined
+      if (pegBody && engine.timing.timestamp - activeBall.lastPegHitAt >= 28) {
+        activeBall.lastPegHitAt = engine.timing.timestamp
+        onPegHit?.({
+          depth: (pegBody.position.y - geometry.topY) / (geometry.bottomY - geometry.topY),
+          speed: ballBody.speed,
+        })
+      }
+
+      const sensorBody = pair.bodyA.label.startsWith(SENSOR_LABEL_PREFIX) ? pair.bodyA : pair.bodyB
+      if (!sensorBody.label.startsWith(SENSOR_LABEL_PREFIX)) continue
 
       const observedBin = Number(sensorBody.label.slice(SENSOR_LABEL_PREFIX.length))
       if (observedBin !== activeBall.targetBin) continue
@@ -208,6 +234,7 @@ export function createPlinkoPhysics(rows: RowCount, onLanding: (landing: Landing
         startedAt: engine.timing.timestamp,
         maxY: body.position.y,
         nextRow: 0,
+        lastPegHitAt: -Infinity,
         stalledMilliseconds: 0,
       })
       Composite.add(engine.world, body)

@@ -1,4 +1,4 @@
-import { BarChart3, ChevronDown, Settings, X } from 'lucide-react'
+import { BarChart3, ChevronDown, Settings, Volume2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
@@ -12,6 +12,12 @@ import {
   type AppDispatch,
 } from '../../app/store'
 import { PlinkoBoard } from './PlinkoBoard'
+import {
+  playPlinkoLanding,
+  playPlinkoPegHit,
+  preparePlinkoAudio,
+  setPlinkoSoundEnabled,
+} from './plinkoAudio'
 import { ROW_OPTIONS, binPayouts, type Risk, type RowCount } from './plinkoConfig'
 import { createOutcomePath, createPathForTarget, getTargetBin, type Luck } from './plinkoPath'
 import type { Landing } from './plinkoPhysics'
@@ -33,6 +39,7 @@ export function PlinkoPage() {
   const [risk, setRisk] = useState<Risk>('medium')
   const [rows, setRows] = useState<RowCount>(16)
   const [luck, setLuck] = useState<Luck>('normal')
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true)
   const [recentBins, setRecentBins] = useState<number[]>([])
   const [binHit, setBinHit] = useState<{ bin: number; roundId: string }>()
   const balance = useSelector(selectBalance)
@@ -61,11 +68,12 @@ export function PlinkoPage() {
       return
     }
     if (!dispatch(settlePlinkoBet(roundId, observedBin))) return
+    playPlinkoLanding(payouts[observedBin])
     setBinHit({ bin: observedBin, roundId })
     setRecentBins((current) => [observedBin, ...current].slice(0, 4))
-  }, [dispatch])
+  }, [dispatch, payouts])
 
-  const dropBall = useTargetedPlinko(canvasRef, rows, handleLanding)
+  const dropBall = useTargetedPlinko(canvasRef, rows, handleLanding, playPlinkoPegHit)
   const isBetUnaffordable = betAmount !== null && betAmount > balance
 
   useEffect(() => {
@@ -78,6 +86,7 @@ export function PlinkoPage() {
         throw new RangeError(`Target bin must be an integer from 0 through ${rows}.`)
       }
 
+      preparePlinkoAudio()
       const roundId = crypto.randomUUID()
       const path = createPathForTarget(rows, targetBin)
       if (!dispatch(acceptPlinkoBet(roundId, betAmount, targetBin, payouts[targetBin], path))) return false
@@ -103,6 +112,7 @@ export function PlinkoPage() {
 
   function handleBet() {
     if (betAmount === null) return
+    preparePlinkoAudio()
     const roundId = crypto.randomUUID()
     const path = createOutcomePath(rows, luck)
     const targetBin = getTargetBin(path)
@@ -272,7 +282,7 @@ export function PlinkoPage() {
       <dialog
         ref={settingsDialogRef}
         aria-labelledby="settings-title"
-        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70"
+        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100%-2rem))] overscroll-contain rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70"
       >
         <form method="dialog" className="p-5">
           <div className="flex items-start justify-between gap-4">
@@ -313,6 +323,30 @@ export function PlinkoPage() {
                 </label>
               ))}
             </div>
+          </fieldset>
+
+          <fieldset className="mt-5 border-t border-[#2f4553] pt-5">
+            <legend className="sr-only">Sound</legend>
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded bg-[#172b36] p-3 hover:bg-[#1a303c] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#00e701]">
+              <span className="flex min-w-0 items-center gap-3">
+                <Volume2 aria-hidden="true" className="size-5 shrink-0 text-[#b1bad3]" />
+                <span>
+                  <span className="block text-sm font-semibold">Sound</span>
+                  <span className="block text-xs text-[#b1bad3]">Peg & landing effects</span>
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                name="sound"
+                checked={isSoundEnabled}
+                onChange={(event) => {
+                  const enabled = event.currentTarget.checked
+                  setIsSoundEnabled(enabled)
+                  setPlinkoSoundEnabled(enabled)
+                }}
+                className="size-5 shrink-0 accent-[#00e701]"
+              />
+            </label>
           </fieldset>
         </form>
       </dialog>
