@@ -4,6 +4,7 @@ import { BOARD_HEIGHT, BOARD_WIDTH } from './plinkoGeometry'
 
 type PlinkoBoardProps = {
   ref: Ref<HTMLCanvasElement>
+  binHit?: Readonly<{ bin: number; roundId: string }>
   payouts: readonly number[]
   recentBins: readonly number[]
   risk: Risk
@@ -14,7 +15,7 @@ function formatMultiplier(multiplier: number) {
   return multiplier >= 100 ? String(multiplier) : `${multiplier}×`
 }
 
-export function PlinkoBoard({ ref, payouts, recentBins, risk, rows }: PlinkoBoardProps) {
+export function PlinkoBoard({ ref, binHit, payouts, recentBins, risk, rows }: PlinkoBoardProps) {
   return (
     <section className="relative flex min-w-0 flex-col bg-[#0f192a] px-3 pb-4 sm:px-5 lg:col-start-2 lg:row-start-1" aria-label="Plinko board">
       <div className="relative mx-auto w-full max-w-[760px]">
@@ -41,13 +42,13 @@ export function PlinkoBoard({ ref, payouts, recentBins, risk, rows }: PlinkoBoar
         ) : null}
       </div>
 
-      <div className="mx-auto flex w-[84%] gap-[1%]" aria-label={`${payouts.length} multiplier bins`}>
+      <div className="relative z-10 -mt-4 mx-auto flex h-8 w-[84%] gap-[1%]" aria-label={`${payouts.length} multiplier bins`}>
         {payouts.map((payout, index) => {
           const color = getBinColor(index, payouts.length)
           return (
             <div
-              key={`${rows}-${risk}-${index}`}
-              className="grid min-w-0 flex-1 place-items-center rounded-[2px] py-1 text-[clamp(0.42rem,1.1vw,0.75rem)] font-extrabold leading-none text-slate-950 lg:rounded"
+              key={`${rows}-${risk}-${index}-${binHit?.bin === index ? binHit.roundId : ''}`}
+              className={`grid min-w-0 flex-1 place-items-center rounded-[2px] text-[clamp(0.42rem,1.1vw,0.75rem)] font-extrabold leading-none text-slate-950 lg:rounded ${binHit?.bin === index ? 'plinko-bin-hit' : ''}`}
               style={{ backgroundColor: color, boxShadow: `0 3px 0 color-mix(in srgb, ${color} 62%, black)` } as CSSProperties}
             >
               {formatMultiplier(payout)}

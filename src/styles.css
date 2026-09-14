@@ -25,11 +25,26 @@ select:not(:disabled) {
   cursor: pointer;
 }
 
+@keyframes plinko-bin-hit {
+  0%, 100% { transform: translateY(0) scale(1); }
+  35% { transform: translateY(-8px) scale(1.08); }
+  65% { transform: translateY(2px) scale(0.98); }
+}
+
+.plinko-bin-hit {
+  animation: plinko-bin-hit 420ms ease-out;
+  transform-origin: center bottom;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .plinko-bin-hit {
+    animation: none;
   }
 }

@@ -25,6 +25,7 @@ export function PlinkoPage() {
   const [risk, setRisk] = useState<Risk>('medium')
   const [rows, setRows] = useState<RowCount>(16)
   const [recentBins, setRecentBins] = useState<number[]>([])
+  const [binHit, setBinHit] = useState<{ bin: number; roundId: string }>()
   const balance = useSelector(selectBalance)
   const activeRoundCount = useSelector(selectActiveBetCount)
   const dispatch = useDispatch<AppDispatch>()
@@ -36,6 +37,7 @@ export function PlinkoPage() {
       return
     }
     if (!dispatch(settlePlinkoBet(roundId, observedBin))) return
+    setBinHit({ bin: observedBin, roundId })
     setRecentBins((current) => [observedBin, ...current].slice(0, 4))
   }, [dispatch])
 
@@ -63,6 +65,7 @@ export function PlinkoPage() {
       <div className="mx-auto max-w-6xl overflow-hidden rounded bg-[#0f192a] shadow-xl shadow-black/25 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]">
         <PlinkoBoard
           ref={canvasRef}
+          binHit={binHit}
           payouts={payouts}
           recentBins={recentBins}
           risk={risk}
