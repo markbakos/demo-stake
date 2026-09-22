@@ -78,6 +78,15 @@ select:not(:disabled) {
   to { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
 }
 
+@keyframes mines-tile-reveal {
+  from { opacity: 0.35; transform: scale(0.72); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.mines-tile-reveal {
+  animation: mines-tile-reveal 180ms ease-out;
+}
+
 @media (min-width: 640px) {
   .blackjack-card {
     width: 4.5rem;
@@ -109,6 +118,10 @@ select:not(:disabled) {
   }
 
   .blackjack-card {
+    animation: none;
+  }
+
+  .mines-tile-reveal {
     animation: none;
   }
 }

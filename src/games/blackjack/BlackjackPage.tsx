@@ -1,6 +1,7 @@
 import { LockKeyhole, Spade } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { usePageMetadata } from '../../app/usePageMetadata'
 import {
   cancelBlackjackRound,
   chooseBlackjackInsurance,
@@ -42,58 +43,28 @@ const OUTCOME_LABELS: Record<BlackjackOutcome, string> = {
   push: 'Push',
 }
 
-function isHandResult(hand: BlackjackHand | BlackjackHandResult): hand is BlackjackHandResult {
-  return 'outcome' in hand
+const BLACKJACK_METADATA = {
+  title: 'Free Blackjack Demo | Demo Casino',
+  description: 'Play a free Stake-style Blackjack demo with virtual credits. Hit, stand, split, double, and use insurance with no account or real money.',
+  socialDescription: 'Play classic Blackjack free with virtual credits, fast card dealing, and no account required.',
+  image: '/blackjack-demo-preview.jpg',
+  imageAlt: 'A dark Blackjack table with four aces and virtual-credit betting controls',
+  schema: {
+    '@context': 'https://schema.org',
+    '@type': ['VideoGame', 'WebApplication'],
+    name: 'Demo Casino Blackjack',
+    description: 'A free browser Blackjack demo played with virtual credits and no account or download.',
+    applicationCategory: 'GameApplication',
+    operatingSystem: 'Any modern web browser',
+    gamePlatform: 'Web browser',
+    playMode: 'SinglePlayer',
+    genre: ['Blackjack', 'Card game', 'Casino-style demo'],
+    isAccessibleForFree: true,
+  },
 }
 
-function useBlackjackMetadata() {
-  useEffect(() => {
-    const title = document.title
-    const description = document.querySelector<HTMLMetaElement>('meta[name="description"]')
-    const ogTitle = document.querySelector<HTMLMetaElement>('meta[property="og:title"]')
-    const ogDescription = document.querySelector<HTMLMetaElement>('meta[property="og:description"]')
-    const twitterTitle = document.querySelector<HTMLMetaElement>('meta[name="twitter:title"]')
-    const twitterDescription = document.querySelector<HTMLMetaElement>('meta[name="twitter:description"]')
-    const ogImage = document.querySelector<HTMLMetaElement>('meta[property="og:image"]')
-    const ogImageAlt = document.querySelector<HTMLMetaElement>('meta[property="og:image:alt"]')
-    const twitterImage = document.querySelector<HTMLMetaElement>('meta[name="twitter:image"]')
-    const twitterImageAlt = document.querySelector<HTMLMetaElement>('meta[name="twitter:image:alt"]')
-    const schema = document.querySelector<HTMLScriptElement>('script[type="application/ld+json"]')
-    const metadata = [description, ogTitle, ogDescription, twitterTitle, twitterDescription, ogImage, ogImageAlt, twitterImage, twitterImageAlt]
-    const previous = metadata.map((element) => element?.content)
-    const previousSchema = schema?.textContent
-
-    document.title = 'Free Blackjack Demo | Demo Casino'
-    if (description) description.content = 'Play a free Stake-style Blackjack demo with virtual credits. Hit, stand, split, double, and use insurance with no account or real money.'
-    if (ogTitle) ogTitle.content = 'Free Blackjack Demo | Demo Casino'
-    if (ogDescription) ogDescription.content = 'Play classic Blackjack free with virtual credits, fast card dealing, and no account required.'
-    if (twitterTitle) twitterTitle.content = 'Free Blackjack Demo | Demo Casino'
-    if (twitterDescription) twitterDescription.content = 'Play Blackjack free with virtual credits. No account, deposit, or real money.'
-    if (ogImage) ogImage.content = '/blackjack-demo-preview.jpg'
-    if (ogImageAlt) ogImageAlt.content = 'A dark Blackjack table with four aces and virtual-credit betting controls'
-    if (twitterImage) twitterImage.content = '/blackjack-demo-preview.jpg'
-    if (twitterImageAlt) twitterImageAlt.content = 'A dark Blackjack table with four aces and virtual-credit betting controls'
-    if (schema) schema.textContent = JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': ['VideoGame', 'WebApplication'],
-      name: 'Demo Casino Blackjack',
-      description: 'A free browser Blackjack demo played with virtual credits and no account or download.',
-      applicationCategory: 'GameApplication',
-      operatingSystem: 'Any modern web browser',
-      gamePlatform: 'Web browser',
-      playMode: 'SinglePlayer',
-      genre: ['Blackjack', 'Card game', 'Casino-style demo'],
-      isAccessibleForFree: true,
-    })
-
-    return () => {
-      document.title = title
-      metadata.forEach((element, index) => {
-        if (element && previous[index] !== undefined) element.content = previous[index]
-      })
-      if (schema && previousSchema !== undefined) schema.textContent = previousSchema
-    }
-  }, [])
+function isHandResult(hand: BlackjackHand | BlackjackHandResult): hand is BlackjackHandResult {
+  return 'outcome' in hand
 }
 
 function PlayingCard({ card, isHidden = false, dealIndex = 0 }: { card?: BlackjackCard; isHidden?: boolean; dealIndex?: number }) {
@@ -159,7 +130,7 @@ function CardHand({
 }
 
 export function BlackjackPage() {
-  useBlackjackMetadata()
+  usePageMetadata(BLACKJACK_METADATA)
   const dispatch = useDispatch<AppDispatch>()
   const balance = useSelector(selectBalance)
   const activeRound = useSelector(selectBlackjackRound)
