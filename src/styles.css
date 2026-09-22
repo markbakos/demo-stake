@@ -29,6 +29,62 @@ select:not(:disabled) {
   cursor: pointer;
 }
 
+.blackjack-card {
+  position: relative;
+  display: grid;
+  width: 3.5rem;
+  height: 5rem;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 0.45rem;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 28%);
+  animation: blackjack-deal 260ms both ease-out;
+}
+
+.blackjack-card-back {
+  background-color: #1475e1;
+  background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 10%) 0 2px, transparent 2px 6px);
+  box-shadow: inset 0 0 0 4px #1475e1, inset 0 0 0 5px rgb(255 255 255 / 45%), 0 8px 18px rgb(0 0 0 / 28%);
+}
+
+.blackjack-action {
+  border-radius: 0.25rem;
+  background: #2f4553;
+  padding-block: 0.75rem;
+  font-weight: 700;
+  color: white;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.blackjack-action:hover:not(:disabled) {
+  background: #3b5565;
+}
+
+.blackjack-action:focus-visible {
+  outline: 2px solid #00e701;
+  outline-offset: 2px;
+}
+
+.blackjack-action:disabled {
+  cursor: not-allowed;
+  color: #b1bad3;
+  opacity: 0.45;
+}
+
+@keyframes blackjack-deal {
+  from { opacity: 0; transform: translateY(-18px) rotate(-3deg) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+
+@media (min-width: 640px) {
+  .blackjack-card {
+    width: 4.5rem;
+    height: 6.25rem;
+  }
+}
+
 @keyframes plinko-bin-hit {
   0%, 100% { transform: translateY(0) scale(1); }
   35% { transform: translateY(-8px) scale(1.08); }
@@ -49,6 +105,10 @@ select:not(:disabled) {
   }
 
   .plinko-bin-hit {
+    animation: none;
+  }
+
+  .blackjack-card {
     animation: none;
   }
 }
