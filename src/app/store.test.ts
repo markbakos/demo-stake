@@ -3,15 +3,18 @@ import {
   acceptPlinkoBet,
   addCredits,
   APP_STORAGE_KEY,
+  cashOutMines,
   cancelAllPlinkoBets,
   chooseBlackjackInsurance,
   createAppStore,
   doubleBlackjack,
   hitBlackjack,
+  revealMineTile,
   settlePlinkoBet,
   splitBlackjack,
   standBlackjack,
   startBlackjackRound,
+  startMinesRound,
   walletReducer,
 } from './store'
 import type { BlackjackCard } from '../games/blackjack/blackjackGame'
@@ -113,5 +116,23 @@ describe('walletReducer', () => {
     expect(store.dispatch(chooseBlackjackInsurance(true))).toBe(false)
     expect(store.dispatch(chooseBlackjackInsurance(false))).toBe(true)
     expect(store.getState().wallet.balance).toBe(2_000)
+  })
+
+  it('shares the wallet with Mines and settles each layout once', () => {
+    const store = createAppStore()
+    expect(store.dispatch(startMinesRound('too-expensive', 10_001, 3, [0, 1, 2]))).toBe(false)
+    expect(store.dispatch(startMinesRound('cashout', 100, 3, [0, 1, 2]))).toBe(true)
+    expect(store.getState().wallet.balance).toBe(9_900)
+    expect(store.dispatch(revealMineTile(3))).toBe(true)
+    expect(store.dispatch(revealMineTile(3))).toBe(false)
+    expect(store.dispatch(cashOutMines())).toBe(true)
+    expect(store.dispatch(cashOutMines())).toBe(false)
+    expect(store.getState().wallet.balance).toBe(10_013)
+    expect(store.getState().mines.results[0]).toMatchObject({ payout: 113, profit: 13, status: 'cashed-out' })
+
+    expect(store.dispatch(startMinesRound('mine', 100, 3, [0, 1, 2]))).toBe(true)
+    expect(store.dispatch(revealMineTile(0))).toBe(true)
+    expect(store.getState().wallet.balance).toBe(9_913)
+    expect(store.getState().mines.results[1]).toMatchObject({ payout: 0, profit: -100, status: 'mine' })
   })
 })

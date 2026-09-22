@@ -13,6 +13,14 @@ import {
   type BlackjackResult,
   type BlackjackRound,
 } from '../games/blackjack/blackjackGame'
+import {
+  cashOutMinesRound,
+  createMinesRound,
+  revealMinesTile,
+  settleMinesRound,
+  type MinesResult,
+  type MinesRound,
+} from '../games/mines/minesGame'
 import { getTargetBin, type Luck, type PlinkoDirection } from '../games/plinko/plinkoPath'
 
 export const CREDIT_AMOUNTS = [100, 500, 1_000, 10_000] as const
@@ -46,6 +54,7 @@ export type PlinkoResult = PlinkoBetSnapshot & {
 
 const MAX_PLINKO_RESULTS = 250
 const MAX_BLACKJACK_RESULTS = 50
+const MAX_MINES_RESULTS = 50
 const defaultPlinkoSettings: PlinkoSettings = {
   luck: 'normal',
   soundEnabled: true,
@@ -231,12 +240,43 @@ const blackjackSlice = createSlice({
   },
 })
 
+const minesSlice = createSlice({
+  name: 'mines',
+  initialState: {
+    activeRound: undefined as MinesRound | undefined,
+    results: [] as MinesResult[],
+  },
+  reducers: {
+    roundStarted(state, action: PayloadAction<MinesRound>) {
+      state.activeRound = action.payload
+    },
+    roundUpdated(state, action: PayloadAction<MinesRound>) {
+      if (state.activeRound?.id === action.payload.id) state.activeRound = action.payload
+    },
+    roundCancelled(state) {
+      state.activeRound = undefined
+    },
+    roundSettled(state, action: PayloadAction<MinesResult>) {
+      if (state.activeRound?.id !== action.payload.id) return
+      state.activeRound = undefined
+      state.results.push(action.payload)
+      if (state.results.length > MAX_MINES_RESULTS) state.results.shift()
+    },
+  },
+})
+
 const {
   roundStarted: blackjackRoundStarted,
   roundUpdated: blackjackRoundUpdated,
   roundCancelled: blackjackRoundCancelled,
   roundSettled: blackjackRoundSettled,
 } = blackjackSlice.actions
+const {
+  roundStarted: minesRoundStarted,
+  roundUpdated: minesRoundUpdated,
+  roundCancelled: minesRoundCancelled,
+  roundSettled: minesRoundSettled,
+} = minesSlice.actions
 
 const { betAccepted, betRemoved, betSettled } = plinkoSlice.actions
 export const {
@@ -251,11 +291,13 @@ export const createAppStore = (storage: AppStorage | undefined = getBrowserStora
       wallet: walletReducer,
       plinko: plinkoSlice.reducer,
       blackjack: blackjackSlice.reducer,
+      mines: minesSlice.reducer,
     },
     preloadedState: {
       wallet: { balance: savedState.balance },
       plinko: { activeBets: {}, results: savedState.results, settings: savedState.settings },
       blackjack: { activeRound: undefined, results: [] },
+      mines: { activeRound: undefined, results: [] },
     },
   })
 
@@ -274,6 +316,8 @@ export const selectPlinkoResults = (state: RootState) => state.plinko.results
 export const selectPlinkoSettings = (state: RootState) => state.plinko.settings
 export const selectBlackjackRound = (state: RootState) => state.blackjack.activeRound
 export const selectBlackjackResults = (state: RootState) => state.blackjack.results
+export const selectMinesRound = (state: RootState) => state.mines.activeRound
+export const selectMinesResults = (state: RootState) => state.mines.results
 
 export const acceptPlinkoBet = (
   roundId: string,
@@ -424,5 +468,66 @@ export const cancelBlackjackRound = () => (dispatch: AppDispatch, getState: () =
   const refund = round.hands.reduce((sum, hand) => sum + hand.wager, round.insuranceWager)
   dispatch(blackjackRoundCancelled())
   dispatch(payoutCredited(refund))
+  return true
+}
+
+function updateMinesRound(dispatch: AppDispatch, round: MinesRound) {
+  dispatch(minesRoundUpdated(round))
+  if (round.status === 'playing') return
+  const result = settleMinesRound(round)
+  dispatch(minesRoundSettled(result))
+  dispatch(payoutCredited(result.payout))
+}
+
+export const startMinesRound = (
+  roundId: string,
+  wager: number,
+  mineCount: number,
+  minePositions?: readonly number[],
+) => (dispatch: AppDispatch, getState: () => RootState) => {
+  const state = getState()
+  if (
+    !roundId ||
+    state.mines.activeRound ||
+    state.mines.results.some((result) => result.id === roundId) ||
+    !Number.isFinite(wager) ||
+    wager <= 0 ||
+    wager > selectBalance(state)
+  ) return false
+
+  let round: MinesRound
+  try {
+    round = createMinesRound(roundId, wager, mineCount, minePositions ? [...minePositions] : undefined)
+  } catch {
+    return false
+  }
+  dispatch(betPlaced(wager))
+  dispatch(minesRoundStarted(round))
+  return true
+}
+
+export const revealMineTile = (tile: number) => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectMinesRound(getState())
+  if (!round) return false
+  const updated = revealMinesTile(round, tile)
+  if (updated === round) return false
+  updateMinesRound(dispatch, updated)
+  return true
+}
+
+export const cashOutMines = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectMinesRound(getState())
+  if (!round) return false
+  const updated = cashOutMinesRound(round)
+  if (updated === round) return false
+  updateMinesRound(dispatch, updated)
+  return true
+}
+
+export const cancelMinesRound = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectMinesRound(getState())
+  if (!round) return false
+  dispatch(minesRoundCancelled())
+  dispatch(payoutCredited(round.wager))
   return true
 }
