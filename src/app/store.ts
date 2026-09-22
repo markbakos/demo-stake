@@ -1,4 +1,18 @@
 import { configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import {
+  answerInsurance as answerBlackjackInsurance,
+  canDoubleBlackjack,
+  canSplitBlackjack,
+  createBlackjackRound,
+  doubleBlackjackHand,
+  hitBlackjackHand,
+  settleBlackjackRound,
+  splitBlackjackHand,
+  standBlackjackHand,
+  type BlackjackCard,
+  type BlackjackResult,
+  type BlackjackRound,
+} from '../games/blackjack/blackjackGame'
 import { getTargetBin, type Luck, type PlinkoDirection } from '../games/plinko/plinkoPath'
 
 export const CREDIT_AMOUNTS = [100, 500, 1_000, 10_000] as const
@@ -31,6 +45,7 @@ export type PlinkoResult = PlinkoBetSnapshot & {
 }
 
 const MAX_PLINKO_RESULTS = 250
+const MAX_BLACKJACK_RESULTS = 50
 const defaultPlinkoSettings: PlinkoSettings = {
   luck: 'normal',
   soundEnabled: true,
@@ -191,6 +206,38 @@ const plinkoSlice = createSlice({
   },
 })
 
+const blackjackSlice = createSlice({
+  name: 'blackjack',
+  initialState: {
+    activeRound: undefined as BlackjackRound | undefined,
+    results: [] as BlackjackResult[],
+  },
+  reducers: {
+    roundStarted(state, action: PayloadAction<BlackjackRound>) {
+      state.activeRound = action.payload
+    },
+    roundUpdated(state, action: PayloadAction<BlackjackRound>) {
+      if (state.activeRound?.id === action.payload.id) state.activeRound = action.payload
+    },
+    roundCancelled(state) {
+      state.activeRound = undefined
+    },
+    roundSettled(state, action: PayloadAction<BlackjackResult>) {
+      if (state.activeRound?.id !== action.payload.id) return
+      state.activeRound = undefined
+      state.results.push(action.payload)
+      if (state.results.length > MAX_BLACKJACK_RESULTS) state.results.shift()
+    },
+  },
+})
+
+const {
+  roundStarted: blackjackRoundStarted,
+  roundUpdated: blackjackRoundUpdated,
+  roundCancelled: blackjackRoundCancelled,
+  roundSettled: blackjackRoundSettled,
+} = blackjackSlice.actions
+
 const { betAccepted, betRemoved, betSettled } = plinkoSlice.actions
 export const {
   luckChanged: setPlinkoLuck,
@@ -203,10 +250,12 @@ export const createAppStore = (storage: AppStorage | undefined = getBrowserStora
     reducer: {
       wallet: walletReducer,
       plinko: plinkoSlice.reducer,
+      blackjack: blackjackSlice.reducer,
     },
     preloadedState: {
       wallet: { balance: savedState.balance },
       plinko: { activeBets: {}, results: savedState.results, settings: savedState.settings },
+      blackjack: { activeRound: undefined, results: [] },
     },
   })
 
@@ -223,6 +272,8 @@ export const selectBalance = (state: RootState) => state.wallet.balance
 export const selectActiveBetCount = (state: RootState) => Object.keys(state.plinko.activeBets).length
 export const selectPlinkoResults = (state: RootState) => state.plinko.results
 export const selectPlinkoSettings = (state: RootState) => state.plinko.settings
+export const selectBlackjackRound = (state: RootState) => state.blackjack.activeRound
+export const selectBlackjackResults = (state: RootState) => state.blackjack.results
 
 export const acceptPlinkoBet = (
   roundId: string,
@@ -284,4 +335,94 @@ export const cancelAllPlinkoBets = () => (dispatch: AppDispatch, getState: () =>
     dispatch(betRemoved(roundId))
     dispatch(payoutCredited(bet.wager))
   }
+}
+
+function updateBlackjackRound(dispatch: AppDispatch, round: BlackjackRound) {
+  dispatch(blackjackRoundUpdated(round))
+  if (round.phase !== 'settled') return
+  const result = settleBlackjackRound(round)
+  dispatch(blackjackRoundSettled(result))
+  dispatch(payoutCredited(result.payout))
+}
+
+export const startBlackjackRound = (
+  roundId: string,
+  wager: number,
+  sequence?: readonly BlackjackCard[],
+) => (dispatch: AppDispatch, getState: () => RootState) => {
+  const state = getState()
+  if (
+    !roundId ||
+    state.blackjack.activeRound ||
+    state.blackjack.results.some((result) => result.id === roundId) ||
+    !Number.isFinite(wager) ||
+    wager <= 0 ||
+    wager > selectBalance(state)
+  ) return false
+
+  let round: BlackjackRound
+  try {
+    round = createBlackjackRound(roundId, wager, sequence ? [...sequence] : undefined)
+  } catch {
+    return false
+  }
+  dispatch(betPlaced(wager))
+  dispatch(blackjackRoundStarted(round))
+  if (round.phase === 'settled') updateBlackjackRound(dispatch, round)
+  return true
+}
+
+export const chooseBlackjackInsurance = (takeInsurance: boolean) => (
+  dispatch: AppDispatch,
+  getState: () => RootState,
+) => {
+  const round = selectBlackjackRound(getState())
+  if (!round || round.phase !== 'insurance') return false
+  const insuranceWager = takeInsurance ? round.originalWager / 2 : 0
+  if (insuranceWager > selectBalance(getState())) return false
+
+  if (insuranceWager > 0) dispatch(betPlaced(insuranceWager))
+  updateBlackjackRound(dispatch, answerBlackjackInsurance(round, takeInsurance))
+  return true
+}
+
+export const hitBlackjack = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectBlackjackRound(getState())
+  if (!round || round.phase !== 'player') return false
+  updateBlackjackRound(dispatch, hitBlackjackHand(round))
+  return true
+}
+
+export const standBlackjack = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectBlackjackRound(getState())
+  if (!round || round.phase !== 'player') return false
+  updateBlackjackRound(dispatch, standBlackjackHand(round))
+  return true
+}
+
+export const doubleBlackjack = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectBlackjackRound(getState())
+  if (!round || !canDoubleBlackjack(round)) return false
+  const additionalWager = round.hands[round.activeHand].wager
+  if (additionalWager > selectBalance(getState())) return false
+  dispatch(betPlaced(additionalWager))
+  updateBlackjackRound(dispatch, doubleBlackjackHand(round))
+  return true
+}
+
+export const splitBlackjack = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectBlackjackRound(getState())
+  if (!round || !canSplitBlackjack(round) || round.originalWager > selectBalance(getState())) return false
+  dispatch(betPlaced(round.originalWager))
+  updateBlackjackRound(dispatch, splitBlackjackHand(round))
+  return true
+}
+
+export const cancelBlackjackRound = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectBlackjackRound(getState())
+  if (!round) return false
+  const refund = round.hands.reduce((sum, hand) => sum + hand.wager, round.insuranceWager)
+  dispatch(blackjackRoundCancelled())
+  dispatch(payoutCredited(refund))
+  return true
 }

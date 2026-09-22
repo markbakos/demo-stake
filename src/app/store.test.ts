@@ -4,10 +4,19 @@ import {
   addCredits,
   APP_STORAGE_KEY,
   cancelAllPlinkoBets,
+  chooseBlackjackInsurance,
   createAppStore,
+  doubleBlackjack,
+  hitBlackjack,
   settlePlinkoBet,
+  splitBlackjack,
+  standBlackjack,
+  startBlackjackRound,
   walletReducer,
 } from './store'
+import type { BlackjackCard } from '../games/blackjack/blackjackGame'
+
+const card = (rank: BlackjackCard['rank'], suit: BlackjackCard['suit'] = 'spades'): BlackjackCard => ({ rank, suit })
 
 describe('walletReducer', () => {
   it('adds only an allowed credit amount', () => {
@@ -72,5 +81,37 @@ describe('walletReducer', () => {
 
     expect(store.getState().wallet.balance).toBe(10_000)
     expect(store.getState().plinko.activeBets).toEqual({})
+  })
+
+  it('runs Blackjack wagers and settles each predetermined round once', () => {
+    const store = createAppStore()
+    expect(store.dispatch(startBlackjackRound('round-1', 100, [
+      card('10'), card('6'), card('7'), card('10'), card('4'), card('2'),
+    ]))).toBe(true)
+    expect(store.getState().wallet.balance).toBe(9_900)
+    expect(store.dispatch(hitBlackjack())).toBe(true)
+    expect(store.getState().blackjack.results[0]).toMatchObject({ payout: 200, profit: 100, outcome: 'win' })
+    expect(store.getState().wallet.balance).toBe(10_100)
+    expect(store.dispatch(standBlackjack())).toBe(false)
+  })
+
+  it('deducts additional Blackjack action wagers only when affordable', () => {
+    const store = createAppStore()
+    expect(store.dispatch(startBlackjackRound('split', 4_000, [
+      card('8'), card('6'), card('8'), card('10'), card('A'), card('9'), card('2'),
+    ]))).toBe(true)
+    expect(store.dispatch(splitBlackjack())).toBe(true)
+    expect(store.getState().wallet.balance).toBe(2_000)
+    expect(store.dispatch(doubleBlackjack())).toBe(false)
+    expect(store.dispatch(standBlackjack())).toBe(true)
+    expect(store.dispatch(standBlackjack())).toBe(true)
+    expect(store.getState().wallet.balance).toBe(10_000)
+
+    expect(store.dispatch(startBlackjackRound('insured', 8_000, [
+      card('10'), card('A'), card('8'), card('K'),
+    ]))).toBe(true)
+    expect(store.dispatch(chooseBlackjackInsurance(true))).toBe(false)
+    expect(store.dispatch(chooseBlackjackInsurance(false))).toBe(true)
+    expect(store.getState().wallet.balance).toBe(2_000)
   })
 })
