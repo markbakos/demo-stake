@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "vitest run",
+    "test": "vitest run src",
+    "test:e2e": "playwright test",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/matter-js": "^0.20.2",
     "@types/react": "^19.2.18",

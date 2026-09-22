@@ -4,4 +4,7 @@ AGENTS.md
 .idea/
 node_modules/
 dist/
+.playwright-artifacts/
+playwright-report/
+test-results/
 *.tsbuildinfo
