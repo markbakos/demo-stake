@@ -1,4 +1,4 @@
-import { Bomb, Dices, Gem, Volume2, VolumeX } from 'lucide-react'
+import { BarChart3, Bomb, Dices, Gem, Volume2, VolumeX } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -14,6 +14,8 @@ import {
 import { usePageMetadata } from '../../app/usePageMetadata'
 import { playMinesCashOut, playMinesGem, playMinesMine, prepareMinesAudio, setMinesSoundEnabled } from './minesAudio'
 import { getMinesMultiplier, getSafeRevealCount, MINES_TILE_COUNT } from './minesGame'
+import { calculateMinesStatistics } from './minesStatistics'
+import { SessionStatisticsDialog } from '../../shared/SessionStatisticsDialog'
 
 const creditFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
@@ -50,6 +52,8 @@ export function MinesPage() {
   const balance = useSelector(selectBalance)
   const activeRound = useSelector(selectMinesRound)
   const results = useSelector(selectMinesResults)
+  const statisticsDialogRef = useRef<HTMLDialogElement>(null)
+  const statistics = calculateMinesStatistics(results)
   const dragPointerId = useRef<number | null>(null)
   const lastDraggedTile = useRef<number | null>(null)
   const lastResult = results.at(-1)
@@ -284,10 +288,19 @@ export function MinesPage() {
           )}
 
           <div className="mt-auto border-t border-[#2f4553] pt-4 text-xs leading-5 text-[#b1bad3]">
+            <button
+              type="button"
+              aria-label="Open live statistics"
+              onClick={() => statisticsDialogRef.current?.showModal()}
+              className="mb-4 flex items-center gap-2 rounded p-2 text-sm font-semibold text-[#b1bad3] transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+            >
+              <BarChart3 aria-hidden="true" className="size-5" /> Statistics
+            </button>
             <p><strong className="text-white">Demo rules:</strong> Choose 1–24 mines. Each safe tile raises the payout. Cash out before finding a mine.</p>
           </div>
         </aside>
       </div>
+      <SessionStatisticsDialog ref={statisticsDialogRef} playLabel="Rounds" statistics={statistics} />
     </main>
   )
 }

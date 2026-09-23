@@ -1,5 +1,5 @@
-import { Spade } from 'lucide-react'
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { BarChart3, Spade } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { usePageMetadata } from '../../app/usePageMetadata'
 import {
@@ -24,6 +24,8 @@ import {
   type BlackjackHandResult,
   type BlackjackOutcome,
 } from './blackjackGame'
+import { calculateBlackjackStatistics } from './blackjackStatistics'
+import { SessionStatisticsDialog } from '../../shared/SessionStatisticsDialog'
 
 const creditFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
@@ -135,6 +137,8 @@ export function BlackjackPage() {
   const balance = useSelector(selectBalance)
   const activeRound = useSelector(selectBlackjackRound)
   const results = useSelector(selectBlackjackResults)
+  const statisticsDialogRef = useRef<HTMLDialogElement>(null)
+  const statistics = calculateBlackjackStatistics(results)
   const lastResult = results.at(-1)
   const [betAmountInput, setBetAmountInput] = useState('1')
   const parsedBetAmount = Number(betAmountInput)
@@ -331,10 +335,19 @@ export function BlackjackPage() {
           )}
 
           <div className="mt-auto border-t border-[#2f4553] pt-4 text-xs leading-5 text-[#b1bad3]">
+            <button
+              type="button"
+              aria-label="Open live statistics"
+              onClick={() => statisticsDialogRef.current?.showModal()}
+              className="mb-4 flex items-center gap-2 rounded p-2 text-sm font-semibold text-[#b1bad3] transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+            >
+              <BarChart3 aria-hidden="true" className="size-5" /> Statistics
+            </button>
             <p><strong className="text-white">Demo rules:</strong> Dealer stands on 17. Blackjack pays 3:2. Insurance pays 2:1.</p>
           </div>
         </aside>
       </div>
+      <SessionStatisticsDialog ref={statisticsDialogRef} playLabel="Rounds" statistics={statistics} />
     </main>
   )
 }
