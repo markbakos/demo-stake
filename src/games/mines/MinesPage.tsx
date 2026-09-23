@@ -1,4 +1,4 @@
-import { Bomb, Dices, Gem } from 'lucide-react'
+import { Bomb, Dices, Gem, Volume2, VolumeX } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -12,6 +12,7 @@ import {
   type AppDispatch,
 } from '../../app/store'
 import { usePageMetadata } from '../../app/usePageMetadata'
+import { playMinesCashOut, playMinesGem, playMinesMine, prepareMinesAudio, setMinesSoundEnabled } from './minesAudio'
 import { getMinesMultiplier, getSafeRevealCount, MINES_TILE_COUNT } from './minesGame'
 
 const creditFormatter = new Intl.NumberFormat('en-US', {
@@ -55,6 +56,7 @@ export function MinesPage() {
   const displayRound = activeRound ?? lastResult
   const [betAmountInput, setBetAmountInput] = useState('1')
   const [mineCount, setMineCount] = useState(3)
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true)
   const parsedBetAmount = Number(betAmountInput)
   const betAmount = betAmountInput !== '' && Number.isFinite(parsedBetAmount) && parsedBetAmount > 0
     ? parsedBetAmount
@@ -83,6 +85,7 @@ export function MinesPage() {
 
   useEffect(() => () => {
     dispatch(cancelMinesRound())
+    setMinesSoundEnabled(true)
   }, [dispatch])
 
   useEffect(() => {
@@ -123,7 +126,29 @@ export function MinesPage() {
 
   function startRound() {
     if (betAmount === null) return
+    if (isSoundEnabled) prepareMinesAudio()
     dispatch(startMinesRound(crypto.randomUUID(), betAmount, mineCount))
+  }
+
+  function revealTile(tile: number) {
+    if (!activeRound) return
+    const isMine = activeRound.minePositions.includes(tile)
+    const isFinalSafeReveal = !isMine && activeRound.revealedTiles.length + 1 === MINES_TILE_COUNT - activeRound.mineCount
+    if (!dispatch(revealMineTile(tile)) || !isSoundEnabled) return
+    if (isMine) playMinesMine()
+    else if (isFinalSafeReveal) playMinesCashOut()
+    else playMinesGem()
+  }
+
+  function cashOut() {
+    if (dispatch(cashOutMines()) && isSoundEnabled) playMinesCashOut()
+  }
+
+  function handleSoundChange(event: ChangeEvent<HTMLInputElement>) {
+    const enabled = event.currentTarget.checked
+    setIsSoundEnabled(enabled)
+    setMinesSoundEnabled(enabled)
+    if (enabled) prepareMinesAudio()
   }
 
   function revealRandomTile() {
@@ -131,14 +156,14 @@ export function MinesPage() {
     const hiddenTiles = Array.from({ length: MINES_TILE_COUNT }, (_, tile) => tile)
       .filter((tile) => !activeRound.revealedTiles.includes(tile))
     const tile = hiddenTiles[Math.floor(Math.random() * hiddenTiles.length)]
-    dispatch(revealMineTile(tile))
+    revealTile(tile)
   }
 
   function startTileSweep(tile: number, event: ReactPointerEvent<HTMLButtonElement>) {
     if (!activeRound || !event.isPrimary || event.button !== 0) return
     dragPointerId.current = event.pointerId
     lastDraggedTile.current = tile
-    dispatch(revealMineTile(tile))
+    revealTile(tile)
   }
 
   function continueTileSweep(event: ReactPointerEvent<HTMLDivElement>) {
@@ -149,7 +174,7 @@ export function MinesPage() {
     const tile = Number(target.dataset.minesTile)
     if (!Number.isInteger(tile) || tile === lastDraggedTile.current) return
     lastDraggedTile.current = tile
-    dispatch(revealMineTile(tile))
+    revealTile(tile)
   }
 
   return (
@@ -182,7 +207,7 @@ export function MinesPage() {
                     disabled={!activeRound}
                     style={{ touchAction: activeRound ? 'none' : undefined }}
                     onPointerDown={(event) => startTileSweep(tile, event)}
-                    onClick={() => dispatch(revealMineTile(tile))}
+                    onClick={() => revealTile(tile)}
                     className={`min-h-12 aspect-square rounded-lg border-b-4 p-1 transition-[transform,background-color,border-color,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:rounded-xl ${
                       showMine
                         ? 'mines-tile-reveal border-[#c02b48] bg-[#ed4163] text-white'
@@ -237,9 +262,17 @@ export function MinesPage() {
             </select>
           </div>
 
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded bg-[#172b36] p-3 hover:bg-[#2f4553] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#00e701]">
+            <span className="flex items-center gap-3 text-sm font-semibold">
+              {isSoundEnabled ? <Volume2 aria-hidden="true" className="size-5 text-[#b1bad3]" /> : <VolumeX aria-hidden="true" className="size-5 text-[#b1bad3]" />}
+              Sound Effects
+            </span>
+            <input type="checkbox" name="minesSound" checked={isSoundEnabled} onChange={handleSoundChange} className="size-5 shrink-0 accent-[#00e701]" />
+          </label>
+
           {activeRound ? (
             <>
-              <button type="button" disabled={safeReveals === 0} onClick={() => dispatch(cashOutMines())} className="rounded bg-[#00e701] py-3 font-bold text-[#0f212e] shadow-md shadow-black/20 transition-colors hover:bg-[#1fff20] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]">
+              <button type="button" disabled={safeReveals === 0} onClick={cashOut} className="rounded bg-[#00e701] py-3 font-bold text-[#0f212e] shadow-md shadow-black/20 transition-colors hover:bg-[#1fff20] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]">
                 Cash Out {creditFormatter.format(potentialPayout)}
               </button>
               <button type="button" onClick={revealRandomTile} className="flex items-center justify-center gap-2 rounded bg-[#2f4553] py-3 font-bold text-white transition-colors hover:bg-[#3b5565] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]">
