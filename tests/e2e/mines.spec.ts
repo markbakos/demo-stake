@@ -4,6 +4,29 @@ type MinesDemoWindow = Window & {
   startMinesDemo?: (minePositions: number[]) => boolean
 }
 
+test('reveals every tile crossed during a drag', async ({ page }) => {
+  await page.goto('/mines')
+  await page.evaluate(() => (window as MinesDemoWindow).startMinesDemo?.([24]))
+
+  const firstTile = page.getByRole('button', { name: 'Tile 1', exact: true })
+  const lastTile = page.getByRole('button', { name: 'Tile 3', exact: true })
+  const firstBox = await firstTile.boundingBox()
+  const lastBox = await lastTile.boundingBox()
+  expect(firstBox).not.toBeNull()
+  expect(lastBox).not.toBeNull()
+
+  await page.mouse.move(firstBox!.x + firstBox!.width / 2, firstBox!.y + firstBox!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(lastBox!.x + lastBox!.width / 2, lastBox!.y + lastBox!.height / 2, { steps: 8 })
+  await page.mouse.up()
+
+  for (const tile of [1, 2, 3]) {
+    const button = page.getByRole('button', { name: `Tile ${tile}: gem` })
+    await expect(button).toBeVisible()
+    await expect(button).toBeEnabled()
+  }
+})
+
 test('plays winning and losing Mines rounds with the shared wallet', async ({ page }, testInfo) => {
   await page.goto('/mines')
 

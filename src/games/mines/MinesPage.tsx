@@ -1,5 +1,5 @@
 import { Bomb, Dices, Gem } from 'lucide-react'
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   cancelMinesRound,
@@ -49,6 +49,8 @@ export function MinesPage() {
   const balance = useSelector(selectBalance)
   const activeRound = useSelector(selectMinesRound)
   const results = useSelector(selectMinesResults)
+  const dragPointerId = useRef<number | null>(null)
+  const lastDraggedTile = useRef<number | null>(null)
   const lastResult = results.at(-1)
   const displayRound = activeRound ?? lastResult
   const [betAmountInput, setBetAmountInput] = useState('1')
@@ -84,6 +86,21 @@ export function MinesPage() {
   }, [dispatch])
 
   useEffect(() => {
+    function stopDragging(event: PointerEvent) {
+      if (event.pointerId !== dragPointerId.current) return
+      dragPointerId.current = null
+      lastDraggedTile.current = null
+    }
+
+    window.addEventListener('pointerup', stopDragging)
+    window.addEventListener('pointercancel', stopDragging)
+    return () => {
+      window.removeEventListener('pointerup', stopDragging)
+      window.removeEventListener('pointercancel', stopDragging)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!import.meta.env.DEV) return
     const developerWindow = window as MinesDeveloperWindow
     developerWindow.startMinesDemo = (minePositions) => {
@@ -117,6 +134,24 @@ export function MinesPage() {
     dispatch(revealMineTile(tile))
   }
 
+  function startTileSweep(tile: number, event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!activeRound || !event.isPrimary || event.button !== 0) return
+    dragPointerId.current = event.pointerId
+    lastDraggedTile.current = tile
+    dispatch(revealMineTile(tile))
+  }
+
+  function continueTileSweep(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!activeRound || event.pointerId !== dragPointerId.current) return
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLButtonElement>('button[data-mines-tile]')
+    if (!target || !event.currentTarget.contains(target)) return
+    const tile = Number(target.dataset.minesTile)
+    if (!Number.isInteger(tile) || tile === lastDraggedTile.current) return
+    lastDraggedTile.current = tile
+    dispatch(revealMineTile(tile))
+  }
+
   return (
     <main id="main-content" className="px-2 py-3 sm:px-5 sm:py-6 lg:py-8">
       <h1 className="sr-only">Mines</h1>
@@ -130,7 +165,7 @@ export function MinesPage() {
               <span>Multiplier <strong className="ml-1 text-[#00e701]">{multiplier.toFixed(2)}×</strong></span>
             </div>
 
-            <div className="grid grid-cols-5 gap-2 sm:gap-3">
+            <div className="grid grid-cols-5 gap-2 select-none sm:gap-3" onPointerMove={continueTileSweep}>
               {Array.from({ length: MINES_TILE_COUNT }, (_, tile) => {
                 const isRevealed = Boolean(displayRound?.revealedTiles.includes(tile))
                 const isMine = Boolean(displayRound?.minePositions.includes(tile))
@@ -142,7 +177,11 @@ export function MinesPage() {
                     key={tile}
                     type="button"
                     aria-label={label}
-                    disabled={!activeRound || isRevealed}
+                    aria-disabled={isRevealed}
+                    data-mines-tile={tile}
+                    disabled={!activeRound}
+                    style={{ touchAction: activeRound ? 'none' : undefined }}
+                    onPointerDown={(event) => startTileSweep(tile, event)}
                     onClick={() => dispatch(revealMineTile(tile))}
                     className={`min-h-12 aspect-square rounded-lg border-b-4 p-1 transition-[transform,background-color,border-color,opacity] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:rounded-xl ${
                       showMine
