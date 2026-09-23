@@ -10,9 +10,23 @@ import {
   doubleBlackjack,
   hitBlackjack,
   revealMineTile,
+  selectBlackjackSettings,
+  selectMinesSettings,
   selectMinesStatistics,
   selectMinesResults,
+  selectPlinkoSettings,
   settlePlinkoBet,
+  setBlackjackBetAmount,
+  setMinesBetAmount,
+  setMinesMineCount,
+  setMinesSoundEnabled,
+  setPlinkoAutoBetCount,
+  setPlinkoBetAmount,
+  setPlinkoLuck,
+  setPlinkoMode,
+  setPlinkoRisk,
+  setPlinkoRows,
+  setPlinkoSoundEnabled,
   splitBlackjack,
   standBlackjack,
   startBlackjackRound,
@@ -68,13 +82,90 @@ describe('walletReducer', () => {
     expect(store.getState().wallet.balance).toBe(250)
     store.dispatch(addCredits(100))
     expect(JSON.parse(values.get(APP_STORAGE_KEY) ?? 'null')).toEqual({
-      version: 2,
+      version: 3,
       wallet: { balance: 350 },
-      plinko: { results: [], settings: { luck: 'normal', soundEnabled: true } },
+      plinko: {
+        results: [],
+        settings: {
+          autoBetCount: '0',
+          betAmount: '1',
+          luck: 'normal',
+          mode: 'manual',
+          risk: 'medium',
+          rows: 16,
+          soundEnabled: true,
+        },
+      },
+      blackjack: { settings: { betAmount: '1' } },
+      mines: { settings: { betAmount: '1', mineCount: 3, soundEnabled: true } },
     })
 
     values.set(APP_STORAGE_KEY, JSON.stringify({ version: 1, wallet: { balance: -1 } }))
     expect(createAppStore(storage).getState().wallet.balance).toBe(10_000)
+  })
+
+  it('migrates existing settings and persists every game control across reloads', () => {
+    const values = new Map([[APP_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      wallet: { balance: 500 },
+      plinko: { results: [], settings: { luck: 'kind', soundEnabled: false } },
+    })]])
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    }
+    const store = createAppStore(storage)
+
+    expect(selectPlinkoSettings(store.getState())).toMatchObject({
+      betAmount: '1', mode: 'manual', risk: 'medium', rows: 16,
+      autoBetCount: '0', luck: 'kind', soundEnabled: false,
+    })
+
+    store.dispatch(setPlinkoBetAmount('8.5'))
+    store.dispatch(setPlinkoMode('auto'))
+    store.dispatch(setPlinkoRisk('high'))
+    store.dispatch(setPlinkoRows(10))
+    store.dispatch(setPlinkoAutoBetCount('7'))
+    store.dispatch(setPlinkoLuck('favored'))
+    store.dispatch(setPlinkoSoundEnabled(true))
+    store.dispatch(setBlackjackBetAmount('25'))
+    store.dispatch(setMinesBetAmount('3.75'))
+    store.dispatch(setMinesMineCount(8))
+    store.dispatch(setMinesSoundEnabled(false))
+
+    const reloaded = createAppStore(storage)
+    expect(reloaded.getState().wallet.balance).toBe(500)
+    expect(selectPlinkoSettings(reloaded.getState())).toMatchObject({
+      betAmount: '8.5', mode: 'auto', risk: 'high', rows: 10,
+      autoBetCount: '7', luck: 'favored', soundEnabled: true,
+    })
+    expect(selectBlackjackSettings(reloaded.getState())).toEqual({ betAmount: '25' })
+    expect(selectMinesSettings(reloaded.getState())).toEqual({ betAmount: '3.75', mineCount: 8, soundEnabled: false })
+  })
+
+  it('rejects invalid persisted game settings and uses defaults', () => {
+    const values = new Map([[APP_STORAGE_KEY, JSON.stringify({
+      version: 3,
+      wallet: { balance: 500 },
+      plinko: { results: [], settings: {
+        autoBetCount: '-1', betAmount: 'Infinity', luck: 'unknown', mode: 'turbo',
+        risk: 'custom', rows: 7, soundEnabled: 'false',
+      } },
+      blackjack: { settings: { betAmount: '0' } },
+      mines: { settings: { betAmount: '-2', mineCount: 25, soundEnabled: 'false' } },
+    })]])
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    }
+    const store = createAppStore(storage)
+
+    expect(selectPlinkoSettings(store.getState())).toMatchObject({
+      autoBetCount: '0', betAmount: '1', luck: 'normal', mode: 'manual',
+      risk: 'medium', rows: 16, soundEnabled: true,
+    })
+    expect(selectBlackjackSettings(store.getState())).toEqual({ betAmount: '1' })
+    expect(selectMinesSettings(store.getState())).toEqual({ betAmount: '1', mineCount: 3, soundEnabled: true })
   })
 
   it('refunds orphaned active rounds', () => {

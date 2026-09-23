@@ -10,7 +10,12 @@ import {
   selectBalance,
   selectPlinkoResults,
   selectPlinkoSettings,
+  setPlinkoAutoBetCount,
+  setPlinkoBetAmount,
   setPlinkoLuck,
+  setPlinkoMode,
+  setPlinkoRisk,
+  setPlinkoRows,
   setPlinkoSoundEnabled as setStoredPlinkoSoundEnabled,
   settlePlinkoBet,
   type AppDispatch,
@@ -28,8 +33,6 @@ import { createOutcomePath, createPathForTarget, getTargetBin, type Luck } from 
 import type { Landing } from './plinkoPhysics'
 import { useTargetedPlinko } from './useTargetedPlinko'
 
-type Mode = 'manual' | 'auto'
-
 const LUCK_OPTIONS: readonly { value: Luck; label: string; description: string }[] = [
   { value: 'normal', label: 'Normal', description: 'Fair odds' },
   { value: 'favored', label: 'Favored', description: '8% boost' },
@@ -40,16 +43,20 @@ export function PlinkoPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const settingsDialogRef = useRef<HTMLDialogElement>(null)
   const statisticsDialogRef = useRef<HTMLDialogElement>(null)
-  const [mode, setMode] = useState<Mode>('manual')
-  const [betAmountInput, setBetAmountInput] = useState('1')
-  const [risk, setRisk] = useState<Risk>('medium')
-  const [rows, setRows] = useState<RowCount>(16)
   const [recentBins, setRecentBins] = useState<number[]>([])
   const [binHit, setBinHit] = useState<{ bin: number; roundId: string }>()
   const balance = useSelector(selectBalance)
   const activeRoundCount = useSelector(selectActiveBetCount)
   const results = useSelector(selectPlinkoResults)
-  const { luck, soundEnabled: isSoundEnabled } = useSelector(selectPlinkoSettings)
+  const {
+    autoBetCount,
+    betAmount: betAmountInput,
+    luck,
+    mode,
+    risk,
+    rows,
+    soundEnabled: isSoundEnabled,
+  } = useSelector(selectPlinkoSettings)
   const dispatch = useDispatch<AppDispatch>()
   const payouts = binPayouts[rows][risk]
   const parsedBetAmount = Number(betAmountInput)
@@ -112,12 +119,12 @@ export function PlinkoPage() {
   }, [betAmount, dispatch, dropBall, payouts, rows])
 
   function handleBetAmount(event: ChangeEvent<HTMLInputElement>) {
-    setBetAmountInput(event.currentTarget.value)
+    dispatch(setPlinkoBetAmount(event.currentTarget.value))
   }
 
   function adjustBetAmount(multiplier: number) {
     if (betAmount === null) return
-    setBetAmountInput(String(Number((betAmount * multiplier).toFixed(2))))
+    dispatch(setPlinkoBetAmount(String(Number((betAmount * multiplier).toFixed(2)))))
   }
 
   function handleBet() {
@@ -151,7 +158,7 @@ export function PlinkoPage() {
                 key={value}
                 type="button"
                 aria-pressed={mode === value}
-                onClick={() => setMode(value)}
+                onClick={() => dispatch(setPlinkoMode(value))}
                 className={`rounded-full px-4 py-2 text-sm font-semibold capitalize text-white transition-colors hover:bg-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701] ${
                   mode === value ? 'bg-[#557086] shadow-sm' : ''
                 }`}
@@ -216,7 +223,7 @@ export function PlinkoPage() {
                 name="risk"
                 value={risk}
                 disabled={activeRoundCount > 0}
-                onChange={(event) => setRisk(event.currentTarget.value as Risk)}
+                onChange={(event) => dispatch(setPlinkoRisk(event.currentTarget.value as Risk))}
                 className="block w-full appearance-none rounded border-2 border-[#2f4553] bg-[#0f212e] px-3 py-2.5 pr-10 text-sm font-medium text-white shadow-inner shadow-black/20 transition-colors hover:border-[#557086] focus-visible:border-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="low">Low</option>
@@ -235,7 +242,7 @@ export function PlinkoPage() {
                 name="rows"
                 value={rows}
                 disabled={activeRoundCount > 0}
-                onChange={(event) => setRows(Number(event.currentTarget.value) as RowCount)}
+                onChange={(event) => dispatch(setPlinkoRows(Number(event.currentTarget.value) as RowCount))}
                 className="block w-full appearance-none rounded border-2 border-[#2f4553] bg-[#0f212e] px-3 py-2.5 pr-10 text-sm font-medium text-white shadow-inner shadow-black/20 transition-colors hover:border-[#557086] focus-visible:border-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {ROW_OPTIONS.map((rowCount) => (
@@ -257,7 +264,8 @@ export function PlinkoPage() {
                 min="0"
                 inputMode="numeric"
                 autoComplete="off"
-                defaultValue="0"
+                value={autoBetCount}
+                onChange={(event) => dispatch(setPlinkoAutoBetCount(event.currentTarget.value))}
                 className="mt-1 block w-full rounded border-2 border-[#2f4553] bg-[#0f212e] px-3 py-2.5 text-sm text-white focus-visible:border-[#557086] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
               />
             </label>

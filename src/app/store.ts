@@ -22,6 +22,7 @@ import {
   type MinesRound,
 } from '../games/mines/minesGame'
 import { addMinesResultToStatistics, createEmptyMinesStatistics } from '../games/mines/minesStatistics'
+import { ROW_OPTIONS, type Risk, type RowCount } from '../games/plinko/plinkoConfig'
 import { getTargetBin, type Luck, type PlinkoDirection } from '../games/plinko/plinkoPath'
 
 export const CREDIT_AMOUNTS = [100, 500, 1_000, 10_000] as const
@@ -41,10 +42,20 @@ type PlinkoBetSnapshot = {
   path: PlinkoDirection[]
 }
 
+export type PlinkoMode = 'manual' | 'auto'
+
 type PlinkoSettings = {
+  autoBetCount: string
+  betAmount: string
   luck: Luck
+  mode: PlinkoMode
+  risk: Risk
+  rows: RowCount
   soundEnabled: boolean
 }
+
+type BlackjackSettings = { betAmount: string }
+type MinesSettings = { betAmount: string; mineCount: number; soundEnabled: boolean }
 
 export type PlinkoResult = PlinkoBetSnapshot & {
   id: string
@@ -57,9 +68,16 @@ const MAX_PLINKO_RESULTS = 250
 const MAX_BLACKJACK_RESULTS = 50
 const MAX_MINES_RESULTS = 50
 const defaultPlinkoSettings: PlinkoSettings = {
+  autoBetCount: '0',
+  betAmount: '1',
   luck: 'normal',
+  mode: 'manual',
+  risk: 'medium',
+  rows: 16,
   soundEnabled: true,
 }
+const defaultBlackjackSettings: BlackjackSettings = { betAmount: '1' }
+const defaultMinesSettings: MinesSettings = { betAmount: '1', mineCount: 3, soundEnabled: true }
 
 const initialState: WalletState = {
   balance: 10_000,
@@ -69,17 +87,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+function isRowCount(value: unknown): value is RowCount {
+  return typeof value === 'number' && ROW_OPTIONS.some((rowCount) => rowCount === value)
+}
+
+function parseBetAmount(value: unknown, fallback: string, allowZero = false) {
+  if (typeof value !== 'string' || value.length > 32) return fallback
+  if (value === '') return ''
+  if (!value.trim()) return fallback
+  const amount = Number(value)
+  if (!Number.isFinite(amount) || (allowZero ? amount < 0 : amount <= 0)) return fallback
+  return value
+}
+
+function parseAutoBetCount(value: unknown) {
+  if (typeof value !== 'string' || value.length > 32) return defaultPlinkoSettings.autoBetCount
+  if (value === '') return ''
+  if (!value.trim()) return defaultPlinkoSettings.autoBetCount
+  const count = Number(value)
+  return Number.isInteger(count) && count >= 0 ? value : defaultPlinkoSettings.autoBetCount
+}
+
 function readSavedState(storage?: AppStorage) {
   const fallback = {
     balance: initialState.balance,
-    results: [] as PlinkoResult[],
-    settings: defaultPlinkoSettings,
+    plinkoResults: [] as PlinkoResult[],
+    plinkoSettings: defaultPlinkoSettings,
+    blackjackSettings: defaultBlackjackSettings,
+    minesSettings: defaultMinesSettings,
   }
   if (!storage) return fallback
 
   try {
     const saved: unknown = JSON.parse(storage.getItem(APP_STORAGE_KEY) ?? 'null')
-    if (!isRecord(saved) || (saved.version !== 1 && saved.version !== 2)) return fallback
+    if (!isRecord(saved) || (saved.version !== 1 && saved.version !== 2 && saved.version !== 3)) return fallback
 
     const balance = isRecord(saved.wallet) &&
       typeof saved.wallet.balance === 'number' &&
@@ -90,18 +131,48 @@ function readSavedState(storage?: AppStorage) {
     if (saved.version === 1 || !isRecord(saved.plinko)) return { ...fallback, balance }
 
     const savedSettings = isRecord(saved.plinko.settings) ? saved.plinko.settings : {}
-    const settings: PlinkoSettings = {
+    const plinkoSettings: PlinkoSettings = {
+      autoBetCount: parseAutoBetCount(savedSettings.autoBetCount),
+      betAmount: parseBetAmount(savedSettings.betAmount, defaultPlinkoSettings.betAmount, true),
       luck: savedSettings.luck === 'normal' || savedSettings.luck === 'favored' || savedSettings.luck === 'kind'
         ? savedSettings.luck
         : defaultPlinkoSettings.luck,
+      mode: savedSettings.mode === 'manual' || savedSettings.mode === 'auto'
+        ? savedSettings.mode
+        : defaultPlinkoSettings.mode,
+      risk: savedSettings.risk === 'low' || savedSettings.risk === 'medium' || savedSettings.risk === 'high'
+        ? savedSettings.risk
+        : defaultPlinkoSettings.risk,
+      rows: isRowCount(savedSettings.rows)
+        ? savedSettings.rows
+        : defaultPlinkoSettings.rows,
       soundEnabled: typeof savedSettings.soundEnabled === 'boolean'
         ? savedSettings.soundEnabled
         : defaultPlinkoSettings.soundEnabled,
     }
-    const results = Array.isArray(saved.plinko.results)
+    const plinkoResults = Array.isArray(saved.plinko.results)
       ? saved.plinko.results.slice(-MAX_PLINKO_RESULTS).flatMap(parsePlinkoResult)
       : []
-    return { balance, results, settings }
+    const savedBlackjackSettings = saved.version === 3 && isRecord(saved.blackjack) && isRecord(saved.blackjack.settings)
+      ? saved.blackjack.settings
+      : {}
+    const blackjackSettings: BlackjackSettings = {
+      betAmount: parseBetAmount(savedBlackjackSettings.betAmount, defaultBlackjackSettings.betAmount),
+    }
+    const savedMinesSettings = saved.version === 3 && isRecord(saved.mines) && isRecord(saved.mines.settings)
+      ? saved.mines.settings
+      : {}
+    const minesSettings: MinesSettings = {
+      betAmount: parseBetAmount(savedMinesSettings.betAmount, defaultMinesSettings.betAmount),
+      mineCount: typeof savedMinesSettings.mineCount === 'number' &&
+        Number.isInteger(savedMinesSettings.mineCount) && savedMinesSettings.mineCount >= 1 && savedMinesSettings.mineCount <= 24
+        ? savedMinesSettings.mineCount
+        : defaultMinesSettings.mineCount,
+      soundEnabled: typeof savedMinesSettings.soundEnabled === 'boolean'
+        ? savedMinesSettings.soundEnabled
+        : defaultMinesSettings.soundEnabled,
+    }
+    return { balance, plinkoResults, plinkoSettings, blackjackSettings, minesSettings }
   } catch {
     // Invalid or unavailable browser storage falls back to demo defaults.
   }
@@ -138,16 +209,23 @@ function parsePlinkoResult(value: unknown): PlinkoResult[] {
 
 function persistState(
   storage: AppStorage | undefined,
-  state: { wallet: WalletState; plinko: { results: PlinkoResult[]; settings: PlinkoSettings } },
+  state: {
+    wallet: WalletState
+    plinko: { results: PlinkoResult[]; settings: PlinkoSettings }
+    blackjack: { settings: BlackjackSettings }
+    mines: { settings: MinesSettings }
+  },
 ) {
   try {
     storage?.setItem(APP_STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       wallet: { balance: state.wallet.balance },
       plinko: {
         results: state.plinko.results,
         settings: state.plinko.settings,
       },
+      blackjack: { settings: state.blackjack.settings },
+      mines: { settings: state.mines.settings },
     }))
   } catch {
     // The demo remains playable when browser storage is unavailable or full.
@@ -210,6 +288,21 @@ const plinkoSlice = createSlice({
     luckChanged(state, action: PayloadAction<Luck>) {
       state.settings.luck = action.payload
     },
+    betAmountChanged(state, action: PayloadAction<string>) {
+      state.settings.betAmount = action.payload
+    },
+    modeChanged(state, action: PayloadAction<PlinkoMode>) {
+      state.settings.mode = action.payload
+    },
+    riskChanged(state, action: PayloadAction<Risk>) {
+      state.settings.risk = action.payload
+    },
+    rowsChanged(state, action: PayloadAction<RowCount>) {
+      state.settings.rows = action.payload
+    },
+    autoBetCountChanged(state, action: PayloadAction<string>) {
+      state.settings.autoBetCount = action.payload
+    },
     soundEnabledChanged(state, action: PayloadAction<boolean>) {
       state.settings.soundEnabled = action.payload
     },
@@ -221,6 +314,7 @@ const blackjackSlice = createSlice({
   initialState: {
     activeRound: undefined as BlackjackRound | undefined,
     results: [] as BlackjackResult[],
+    settings: defaultBlackjackSettings,
   },
   reducers: {
     roundStarted(state, action: PayloadAction<BlackjackRound>) {
@@ -238,6 +332,9 @@ const blackjackSlice = createSlice({
       state.results.push(action.payload)
       if (state.results.length > MAX_BLACKJACK_RESULTS) state.results.shift()
     },
+    betAmountChanged(state, action: PayloadAction<string>) {
+      state.settings.betAmount = action.payload
+    },
   },
 })
 
@@ -247,6 +344,7 @@ const minesSlice = createSlice({
     activeRound: undefined as MinesRound | undefined,
     results: [] as MinesResult[],
     statistics: createEmptyMinesStatistics(),
+    settings: defaultMinesSettings,
   },
   reducers: {
     roundStarted(state, action: PayloadAction<MinesRound>) {
@@ -264,6 +362,15 @@ const minesSlice = createSlice({
       state.results.push(action.payload)
       if (state.results.length > MAX_MINES_RESULTS) state.results.shift()
       state.statistics = addMinesResultToStatistics(state.statistics, action.payload)
+    },
+    betAmountChanged(state, action: PayloadAction<string>) {
+      state.settings.betAmount = action.payload
+    },
+    mineCountChanged(state, action: PayloadAction<number>) {
+      state.settings.mineCount = action.payload
+    },
+    soundEnabledChanged(state, action: PayloadAction<boolean>) {
+      state.settings.soundEnabled = action.payload
     },
   },
 })
@@ -285,7 +392,18 @@ const { betAccepted, betRemoved, betSettled } = plinkoSlice.actions
 export const {
   luckChanged: setPlinkoLuck,
   soundEnabledChanged: setPlinkoSoundEnabled,
+  betAmountChanged: setPlinkoBetAmount,
+  modeChanged: setPlinkoMode,
+  riskChanged: setPlinkoRisk,
+  rowsChanged: setPlinkoRows,
+  autoBetCountChanged: setPlinkoAutoBetCount,
 } = plinkoSlice.actions
+export const { betAmountChanged: setBlackjackBetAmount } = blackjackSlice.actions
+export const {
+  betAmountChanged: setMinesBetAmount,
+  mineCountChanged: setMinesMineCount,
+  soundEnabledChanged: setMinesSoundEnabled,
+} = minesSlice.actions
 
 export const createAppStore = (storage: AppStorage | undefined = getBrowserStorage()) => {
   const savedState = readSavedState(storage)
@@ -298,9 +416,14 @@ export const createAppStore = (storage: AppStorage | undefined = getBrowserStora
     },
     preloadedState: {
       wallet: { balance: savedState.balance },
-      plinko: { activeBets: {}, results: savedState.results, settings: savedState.settings },
-      blackjack: { activeRound: undefined, results: [] },
-      mines: { activeRound: undefined, results: [], statistics: createEmptyMinesStatistics() },
+      plinko: { activeBets: {}, results: savedState.plinkoResults, settings: savedState.plinkoSettings },
+      blackjack: { activeRound: undefined, results: [], settings: savedState.blackjackSettings },
+      mines: {
+        activeRound: undefined,
+        results: [],
+        statistics: createEmptyMinesStatistics(),
+        settings: savedState.minesSettings,
+      },
     },
   })
 
@@ -319,9 +442,11 @@ export const selectPlinkoResults = (state: RootState) => state.plinko.results
 export const selectPlinkoSettings = (state: RootState) => state.plinko.settings
 export const selectBlackjackRound = (state: RootState) => state.blackjack.activeRound
 export const selectBlackjackResults = (state: RootState) => state.blackjack.results
+export const selectBlackjackSettings = (state: RootState) => state.blackjack.settings
 export const selectMinesRound = (state: RootState) => state.mines.activeRound
 export const selectMinesResults = (state: RootState) => state.mines.results
 export const selectMinesStatistics = (state: RootState) => state.mines.statistics
+export const selectMinesSettings = (state: RootState) => state.mines.settings
 
 export const acceptPlinkoBet = (
   roundId: string,

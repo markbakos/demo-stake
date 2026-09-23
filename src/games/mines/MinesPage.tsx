@@ -1,14 +1,18 @@
 import { BarChart3, Bomb, Dices, Gem, Volume2, VolumeX } from 'lucide-react'
-import { useEffect, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   cancelMinesRound,
   cashOutMines,
   revealMineTile,
   selectBalance,
+  selectMinesSettings,
   selectMinesResults,
   selectMinesRound,
   selectMinesStatistics,
+  setMinesBetAmount,
+  setMinesMineCount,
+  setMinesSoundEnabled as setStoredMinesSoundEnabled,
   startMinesRound,
   type AppDispatch,
 } from '../../app/store'
@@ -53,14 +57,12 @@ export function MinesPage() {
   const activeRound = useSelector(selectMinesRound)
   const results = useSelector(selectMinesResults)
   const statistics = useSelector(selectMinesStatistics)
+  const { betAmount: betAmountInput, mineCount, soundEnabled: isSoundEnabled } = useSelector(selectMinesSettings)
   const statisticsDialogRef = useRef<HTMLDialogElement>(null)
   const dragPointerId = useRef<number | null>(null)
   const lastDraggedTile = useRef<number | null>(null)
   const lastResult = results.at(-1)
   const displayRound = activeRound ?? lastResult
-  const [betAmountInput, setBetAmountInput] = useState('1')
-  const [mineCount, setMineCount] = useState(3)
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true)
   const parsedBetAmount = Number(betAmountInput)
   const betAmount = betAmountInput !== '' && Number.isFinite(parsedBetAmount) && parsedBetAmount > 0
     ? parsedBetAmount
@@ -121,11 +123,11 @@ export function MinesPage() {
 
   function adjustBetAmount(multiplierValue: number) {
     if (betAmount === null) return
-    setBetAmountInput(String(Number((betAmount * multiplierValue).toFixed(2))))
+    dispatch(setMinesBetAmount(String(Number((betAmount * multiplierValue).toFixed(2)))))
   }
 
   function handleMineCount(event: ChangeEvent<HTMLSelectElement>) {
-    setMineCount(Number(event.currentTarget.value))
+    dispatch(setMinesMineCount(Number(event.currentTarget.value)))
   }
 
   function startRound() {
@@ -150,7 +152,7 @@ export function MinesPage() {
 
   function handleSoundChange(event: ChangeEvent<HTMLInputElement>) {
     const enabled = event.currentTarget.checked
-    setIsSoundEnabled(enabled)
+    dispatch(setStoredMinesSoundEnabled(enabled))
     setMinesSoundEnabled(enabled)
     if (enabled) prepareMinesAudio()
   }
@@ -248,7 +250,7 @@ export function MinesPage() {
                 placeholder="0.00…"
                 value={betAmountInput}
                 disabled={Boolean(activeRound)}
-                onChange={(event) => setBetAmountInput(event.currentTarget.value)}
+                onChange={(event) => dispatch(setMinesBetAmount(event.currentTarget.value))}
                 aria-invalid={Boolean(betAmountError)}
                 aria-describedby={betAmountError ? 'mines-bet-error' : undefined}
                 className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-70"

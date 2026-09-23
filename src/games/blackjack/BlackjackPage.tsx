@@ -1,5 +1,5 @@
 import { BarChart3, Spade } from 'lucide-react'
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, type ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { usePageMetadata } from '../../app/usePageMetadata'
 import {
@@ -10,6 +10,8 @@ import {
   selectBalance,
   selectBlackjackResults,
   selectBlackjackRound,
+  selectBlackjackSettings,
+  setBlackjackBetAmount,
   splitBlackjack,
   standBlackjack,
   startBlackjackRound,
@@ -137,10 +139,10 @@ export function BlackjackPage() {
   const balance = useSelector(selectBalance)
   const activeRound = useSelector(selectBlackjackRound)
   const results = useSelector(selectBlackjackResults)
+  const { betAmount: betAmountInput } = useSelector(selectBlackjackSettings)
   const statisticsDialogRef = useRef<HTMLDialogElement>(null)
   const statistics = calculateBlackjackStatistics(results)
   const lastResult = results.at(-1)
-  const [betAmountInput, setBetAmountInput] = useState('1')
   const parsedBetAmount = Number(betAmountInput)
   const betAmount = betAmountInput !== '' && Number.isFinite(parsedBetAmount) && parsedBetAmount > 0
     ? parsedBetAmount
@@ -168,12 +170,12 @@ export function BlackjackPage() {
   }, [dispatch])
 
   function handleBetAmount(event: ChangeEvent<HTMLInputElement>) {
-    setBetAmountInput(event.currentTarget.value)
+    dispatch(setBlackjackBetAmount(event.currentTarget.value))
   }
 
   function adjustBetAmount(multiplier: number) {
     if (betAmount === null) return
-    setBetAmountInput(String(Number((betAmount * multiplier).toFixed(2))))
+    dispatch(setBlackjackBetAmount(String(Number((betAmount * multiplier).toFixed(2)))))
   }
 
   function handleBet() {
