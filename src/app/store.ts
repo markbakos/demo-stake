@@ -21,6 +21,7 @@ import {
   type MinesResult,
   type MinesRound,
 } from '../games/mines/minesGame'
+import { addMinesResultToStatistics, createEmptyMinesStatistics } from '../games/mines/minesStatistics'
 import { getTargetBin, type Luck, type PlinkoDirection } from '../games/plinko/plinkoPath'
 
 export const CREDIT_AMOUNTS = [100, 500, 1_000, 10_000] as const
@@ -245,6 +246,7 @@ const minesSlice = createSlice({
   initialState: {
     activeRound: undefined as MinesRound | undefined,
     results: [] as MinesResult[],
+    statistics: createEmptyMinesStatistics(),
   },
   reducers: {
     roundStarted(state, action: PayloadAction<MinesRound>) {
@@ -261,6 +263,7 @@ const minesSlice = createSlice({
       state.activeRound = undefined
       state.results.push(action.payload)
       if (state.results.length > MAX_MINES_RESULTS) state.results.shift()
+      state.statistics = addMinesResultToStatistics(state.statistics, action.payload)
     },
   },
 })
@@ -297,7 +300,7 @@ export const createAppStore = (storage: AppStorage | undefined = getBrowserStora
       wallet: { balance: savedState.balance },
       plinko: { activeBets: {}, results: savedState.results, settings: savedState.settings },
       blackjack: { activeRound: undefined, results: [] },
-      mines: { activeRound: undefined, results: [] },
+      mines: { activeRound: undefined, results: [], statistics: createEmptyMinesStatistics() },
     },
   })
 
@@ -318,6 +321,7 @@ export const selectBlackjackRound = (state: RootState) => state.blackjack.active
 export const selectBlackjackResults = (state: RootState) => state.blackjack.results
 export const selectMinesRound = (state: RootState) => state.mines.activeRound
 export const selectMinesResults = (state: RootState) => state.mines.results
+export const selectMinesStatistics = (state: RootState) => state.mines.statistics
 
 export const acceptPlinkoBet = (
   roundId: string,

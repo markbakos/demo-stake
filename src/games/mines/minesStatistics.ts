@@ -3,26 +3,36 @@ import type { SessionStatistics } from '../../shared/sessionStatistics'
 
 type MinesStatisticsResult = Pick<MinesResult, 'profit' | 'status' | 'wager'>
 
-export function calculateMinesStatistics(results: readonly MinesStatisticsResult[]): SessionStatistics {
-  let profit = 0
-  let wagered = 0
-  let wins = 0
-  const profitHistory = [0]
+const MAX_PROFIT_HISTORY_POINTS = 51
 
-  for (const result of results) {
-    profit += result.profit
-    wagered += result.wager
-    if (result.status === 'cashed-out' || result.status === 'cleared') wins += 1
-    profitHistory.push(profit)
+export function createEmptyMinesStatistics(): SessionStatistics {
+  return {
+    bets: 0,
+    losses: 0,
+    profit: 0,
+    profitHistory: [0],
+    wagered: 0,
+    winRate: 0,
+    wins: 0,
   }
+}
+
+export function addMinesResultToStatistics(
+  statistics: SessionStatistics,
+  result: MinesStatisticsResult,
+): SessionStatistics {
+  const isWin = result.status === 'cashed-out' || result.status === 'cleared'
+  const bets = statistics.bets + 1
+  const wins = statistics.wins + Number(isWin)
+  const profit = statistics.profit + result.profit
 
   return {
-    bets: results.length,
-    losses: results.length - wins,
+    bets,
+    losses: statistics.losses + Number(!isWin),
     profit,
-    profitHistory,
-    wagered,
-    winRate: results.length === 0 ? 0 : wins / results.length,
+    profitHistory: [...statistics.profitHistory, profit].slice(-MAX_PROFIT_HISTORY_POINTS),
+    wagered: statistics.wagered + result.wager,
+    winRate: wins / bets,
     wins,
   }
 }

@@ -8,13 +8,13 @@ import {
   selectBalance,
   selectMinesResults,
   selectMinesRound,
+  selectMinesStatistics,
   startMinesRound,
   type AppDispatch,
 } from '../../app/store'
 import { usePageMetadata } from '../../app/usePageMetadata'
 import { playMinesCashOut, playMinesGem, playMinesMine, prepareMinesAudio, setMinesSoundEnabled } from './minesAudio'
 import { getMinesMultiplier, getSafeRevealCount, MINES_TILE_COUNT } from './minesGame'
-import { calculateMinesStatistics } from './minesStatistics'
 import { SessionStatisticsDialog } from '../../shared/SessionStatisticsDialog'
 
 const creditFormatter = new Intl.NumberFormat('en-US', {
@@ -52,8 +52,8 @@ export function MinesPage() {
   const balance = useSelector(selectBalance)
   const activeRound = useSelector(selectMinesRound)
   const results = useSelector(selectMinesResults)
+  const statistics = useSelector(selectMinesStatistics)
   const statisticsDialogRef = useRef<HTMLDialogElement>(null)
-  const statistics = calculateMinesStatistics(results)
   const dragPointerId = useRef<number | null>(null)
   const lastDraggedTile = useRef<number | null>(null)
   const lastResult = results.at(-1)

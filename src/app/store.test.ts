@@ -10,6 +10,8 @@ import {
   doubleBlackjack,
   hitBlackjack,
   revealMineTile,
+  selectMinesStatistics,
+  selectMinesResults,
   settlePlinkoBet,
   splitBlackjack,
   standBlackjack,
@@ -134,5 +136,23 @@ describe('walletReducer', () => {
     expect(store.dispatch(revealMineTile(0))).toBe(true)
     expect(store.getState().wallet.balance).toBe(9_913)
     expect(store.getState().mines.results[1]).toMatchObject({ payout: 0, profit: -100, status: 'mine' })
+  })
+
+  it('keeps Mines session statistics cumulative when recent results roll over', () => {
+    const store = createAppStore(undefined)
+    for (let round = 1; round <= 55; round += 1) {
+      expect(store.dispatch(startMinesRound(`round-${round}`, round, 1, [0]))).toBe(true)
+      expect(store.dispatch(revealMineTile(0))).toBe(true)
+    }
+
+    expect(selectMinesResults(store.getState())).toHaveLength(50)
+    expect(selectMinesStatistics(store.getState())).toMatchObject({
+      bets: 55,
+      losses: 55,
+      profit: -1_540,
+      wagered: 1_540,
+      wins: 0,
+      winRate: 0,
+    })
   })
 })
