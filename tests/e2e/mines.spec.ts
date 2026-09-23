@@ -10,7 +10,6 @@ test('plays winning and losing Mines rounds with the shared wallet', async ({ pa
   await expect(page).toHaveTitle('Free Mines Demo | Demo Casino')
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Mines demo/)
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', '/mines-demo-preview.jpg')
-  await expect(page.getByRole('heading', { name: 'Play a Free Mines Demo' })).toBeVisible()
   await expect(page.getByText('10,000.00', { exact: true })).toBeVisible()
 
   await page.evaluate(() => (window as MinesDemoWindow).startMinesDemo?.([0, 1, 2]))

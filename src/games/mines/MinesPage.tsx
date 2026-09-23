@@ -1,4 +1,4 @@
-import { Bomb, Dices, Gem, LockKeyhole } from 'lucide-react'
+import { Bomb, Dices, Gem } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -119,6 +119,7 @@ export function MinesPage() {
 
   return (
     <main id="main-content" className="px-2 py-3 sm:px-5 sm:py-6 lg:py-8">
+      <h1 className="sr-only">Mines</h1>
       <div className="mx-auto max-w-6xl overflow-hidden rounded bg-[#0f192a] shadow-xl shadow-black/25 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]">
         <section className="relative flex min-h-[430px] flex-col overflow-hidden px-3 py-6 sm:min-h-[600px] sm:px-8 lg:col-start-2 lg:min-h-[640px]" aria-label="Mines board">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(circle_at_50%_50%,#183d3d_0%,#0f2833_38%,#0f192a_75%)]" />
@@ -160,9 +161,6 @@ export function MinesPage() {
             </div>
 
             <p aria-live="polite" className="mt-5 min-h-6 text-center text-sm font-semibold text-white">{statusMessage}</p>
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-[#7f8da3]">
-              <LockKeyhole aria-hidden="true" className="size-3.5" /> Mine positions locked before the first pick
-            </p>
           </div>
         </section>
 
@@ -215,22 +213,9 @@ export function MinesPage() {
 
           <div className="mt-auto border-t border-[#2f4553] pt-4 text-xs leading-5 text-[#b1bad3]">
             <p><strong className="text-white">Demo rules:</strong> Choose 1–24 mines. Each safe tile raises the payout. Cash out before finding a mine.</p>
-            <p className="mt-2">Virtual credits only. No deposits, withdrawals, or cash value.</p>
           </div>
         </aside>
       </div>
-
-      <section className="mx-auto max-w-4xl px-2 py-10 text-[#b1bad3] sm:py-14" aria-labelledby="mines-demo-title">
-        <h1 id="mines-demo-title" className="scroll-mt-20 text-balance text-3xl font-bold text-white sm:text-4xl">Play a Free Mines Demo</h1>
-        <p className="mt-4 text-pretty leading-7">Search a 5×5 board for gems using 10,000 shared virtual demo credits. Choose from 1 to 24 mines, reveal safe tiles to increase your multiplier, and cash out before you uncover a mine.</p>
-        <p className="mt-3 text-pretty leading-7">This independent <span translate="no">Stake</span>-style Mines demo recreates the compact game feel for entertainment and testing. It is not affiliated with <span translate="no">Stake</span>, and no credit can be deposited, withdrawn, or redeemed.</p>
-        <h2 className="mt-8 text-balance text-xl font-bold text-white sm:text-2xl">How This Demo Works</h2>
-        <ol className="mt-4 grid gap-3 sm:grid-cols-3">
-          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">1. Set the Risk</strong><span className="mt-1 block text-sm leading-6">Choose your virtual bet and number of mines.</span></li>
-          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">2. Find Gems</strong><span className="mt-1 block text-sm leading-6">Every safe tile increases the multiplier.</span></li>
-          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">3. Cash Out</strong><span className="mt-1 block text-sm leading-6">Collect your payout before hitting a mine.</span></li>
-        </ol>
-      </section>
     </main>
   )
 }

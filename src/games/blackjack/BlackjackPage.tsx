@@ -1,4 +1,4 @@
-import { LockKeyhole, Spade } from 'lucide-react'
+import { Spade } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { usePageMetadata } from '../../app/usePageMetadata'
@@ -182,6 +182,7 @@ export function BlackjackPage() {
 
   return (
     <main id="main-content" className="px-2 py-3 sm:px-5 sm:py-6 lg:py-8">
+      <h1 className="sr-only">Blackjack</h1>
       <div className="mx-auto max-w-6xl overflow-hidden rounded bg-[#0f192a] shadow-xl shadow-black/25 lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]">
         <section className="relative flex min-h-[430px] flex-col overflow-hidden px-4 py-6 sm:min-h-[540px] sm:px-8 lg:col-start-2 lg:min-h-[640px]" aria-label="Blackjack table">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(circle_at_50%_115%,#1d4d3a_0%,#0f2d2d_35%,#0f192a_70%)]" />
@@ -240,9 +241,6 @@ export function BlackjackPage() {
 
             <p aria-live="polite" className="mt-5 min-h-6 text-center text-sm font-semibold text-white">
               {statusMessage}
-            </p>
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-[#7f8da3]">
-              <LockKeyhole aria-hidden="true" className="size-3.5" /> Card order locked before the deal
             </p>
           </div>
         </section>
@@ -334,29 +332,9 @@ export function BlackjackPage() {
 
           <div className="mt-auto border-t border-[#2f4553] pt-4 text-xs leading-5 text-[#b1bad3]">
             <p><strong className="text-white">Demo rules:</strong> Dealer stands on 17. Blackjack pays 3:2. Insurance pays 2:1.</p>
-            <p className="mt-2">Virtual credits only. No deposits, withdrawals, or cash value.</p>
           </div>
         </aside>
       </div>
-
-      <section className="mx-auto max-w-4xl px-2 py-10 text-[#b1bad3] sm:py-14" aria-labelledby="blackjack-demo-title">
-        <h1 id="blackjack-demo-title" className="scroll-mt-20 text-balance text-3xl font-bold text-white sm:text-4xl">
-          Play a Free Blackjack Demo
-        </h1>
-        <p className="mt-4 text-pretty leading-7">
-          Practice classic Blackjack instantly with 10,000 virtual demo credits. Hit, stand, split pairs, double down, and use insurance while trying to beat the dealer to 21.
-        </p>
-        <p className="mt-3 text-pretty leading-7">
-          This independent <span translate="no">Stake</span>-style Blackjack demo recreates the fast, compact game feel for entertainment and testing. It is not affiliated with <span translate="no">Stake</span>, and no credit can be deposited, withdrawn, or redeemed.
-        </p>
-
-        <h2 className="mt-8 text-balance text-xl font-bold text-white sm:text-2xl">How This Demo Works</h2>
-        <ol className="mt-4 grid gap-3 sm:grid-cols-3">
-          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">1. Set Your Bet</strong><span className="mt-1 block text-sm leading-6">Choose a positive virtual-credit wager.</span></li>
-          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">2. Play Your Hand</strong><span className="mt-1 block text-sm leading-6">Hit, stand, split, or double when available.</span></li>
-          <li className="rounded bg-[#213743] p-4"><strong className="block text-white">3. Beat the Dealer</strong><span className="mt-1 block text-sm leading-6">Get closer to 21 without going over.</span></li>
-        </ol>
-      </section>
     </main>
   )
 }

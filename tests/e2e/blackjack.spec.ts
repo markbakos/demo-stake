@@ -6,7 +6,6 @@ test('plays and settles a Blackjack round', async ({ page }, testInfo) => {
   await expect(page).toHaveTitle('Free Blackjack Demo | Demo Casino')
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Blackjack demo/)
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', '/blackjack-demo-preview.jpg')
-  await expect(page.getByRole('heading', { name: 'Play a Free Blackjack Demo' })).toBeVisible()
   await page.getByRole('button', { name: 'Bet', exact: true }).click()
 
   const noInsurance = page.getByRole('button', { name: 'No Insurance' })
