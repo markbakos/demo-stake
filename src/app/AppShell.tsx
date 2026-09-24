@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CircleDot,
   CircleDollarSign,
+  Dices,
   GitFork,
   Gem,
   Menu,
@@ -161,6 +162,21 @@ export function AppShell() {
                 >
                   <Gem aria-hidden="true" className="size-5 shrink-0 text-[#00e701]" fill="currentColor" />
                   {isRailOpen ? <span>Mines</span> : null}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/dice"
+                  aria-label="Dice"
+                  title={isRailOpen ? undefined : 'Dice'}
+                  className={({ isActive }) =>
+                    `flex items-center rounded py-3 text-sm font-semibold transition-colors hover:bg-[#213743] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701] ${
+                      isRailOpen ? 'gap-3 px-3' : 'justify-center px-2'
+                    } ${isActive ? 'bg-[#213743] text-white' : 'text-[#b1bad3]'}`
+                  }
+                >
+                  <Dices aria-hidden="true" className="size-5 shrink-0 text-[#00e701]" />
+                  {isRailOpen ? <span>Dice</span> : null}
                 </NavLink>
               </li>
             </ul>

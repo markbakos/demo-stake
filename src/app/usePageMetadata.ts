@@ -5,6 +5,7 @@ type PageMetadata = {
   description: string
   socialDescription: string
   image: string
+  imageType?: string
   imageAlt: string
   schema: Record<string, unknown>
 }
@@ -18,6 +19,9 @@ export function usePageMetadata(metadata: PageMetadata) {
       document.querySelector<HTMLMetaElement>('meta[name="twitter:title"]'),
       document.querySelector<HTMLMetaElement>('meta[name="twitter:description"]'),
       document.querySelector<HTMLMetaElement>('meta[property="og:image"]'),
+      document.querySelector<HTMLMetaElement>('meta[property="og:image:type"]'),
+      document.querySelector<HTMLMetaElement>('meta[property="og:image:width"]'),
+      document.querySelector<HTMLMetaElement>('meta[property="og:image:height"]'),
       document.querySelector<HTMLMetaElement>('meta[property="og:image:alt"]'),
       document.querySelector<HTMLMetaElement>('meta[name="twitter:image"]'),
       document.querySelector<HTMLMetaElement>('meta[name="twitter:image:alt"]'),
@@ -33,6 +37,9 @@ export function usePageMetadata(metadata: PageMetadata) {
       metadata.title,
       metadata.socialDescription,
       metadata.image,
+      metadata.imageType ?? 'image/jpeg',
+      '1200',
+      '630',
       metadata.imageAlt,
       metadata.image,
       metadata.imageAlt,

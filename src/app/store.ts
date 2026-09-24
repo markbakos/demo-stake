@@ -23,6 +23,17 @@ import {
   type MinesRound,
 } from '../games/mines/minesGame'
 import { addMinesResultToStatistics, createEmptyMinesStatistics } from '../games/mines/minesStatistics'
+import { addDiceResultToStatistics, calculateDiceStatistics, createEmptyDiceStatistics } from '../games/dice/diceStatistics'
+import {
+  createDiceRound,
+  getDiceMultiplier,
+  getDiceWinChance,
+  isDiceTarget,
+  settleDiceRound as createSettledDiceRound,
+  type DiceDirection,
+  type DiceResult,
+  type DiceRound,
+} from '../games/dice/diceGame'
 import { ROW_OPTIONS, type Risk, type RowCount } from '../games/plinko/plinkoConfig'
 import { getTargetBin, type Luck, type PlinkoDirection } from '../games/plinko/plinkoPath'
 
@@ -57,6 +68,22 @@ type PlinkoSettings = {
 
 type BlackjackSettings = { betAmount: string }
 type MinesSettings = { betAmount: string; luck: MinesLuck; mineCount: number; soundEnabled: boolean }
+export type DiceMode = 'manual' | 'auto'
+export type DiceAdjustment = 'none' | 'reset' | 'increase' | 'decrease'
+type DiceSettings = {
+  autoBetCount: string
+  betAmount: string
+  direction: DiceDirection
+  mode: DiceMode
+  onLossAdjustment: DiceAdjustment
+  onLossPercent: string
+  onWinAdjustment: DiceAdjustment
+  onWinPercent: string
+  soundEnabled: boolean
+  stopOnLoss: string
+  stopOnProfit: string
+  target: string
+}
 
 export type PlinkoResult = PlinkoBetSnapshot & {
   id: string
@@ -79,6 +106,20 @@ const defaultPlinkoSettings: PlinkoSettings = {
 }
 const defaultBlackjackSettings: BlackjackSettings = { betAmount: '1' }
 const defaultMinesSettings: MinesSettings = { betAmount: '1', luck: 'normal', mineCount: 3, soundEnabled: true }
+const defaultDiceSettings: DiceSettings = {
+  autoBetCount: '0',
+  betAmount: '1',
+  direction: 'over',
+  mode: 'manual',
+  onLossAdjustment: 'none',
+  onLossPercent: '100',
+  onWinAdjustment: 'none',
+  onWinPercent: '100',
+  soundEnabled: true,
+  stopOnLoss: '0',
+  stopOnProfit: '0',
+  target: '50.50',
+}
 
 const initialState: WalletState = {
   balance: 10_000,
@@ -109,6 +150,22 @@ function parseAutoBetCount(value: unknown) {
   return Number.isInteger(count) && count >= 0 ? value : defaultPlinkoSettings.autoBetCount
 }
 
+function parseDiceTarget(value: unknown) {
+  if (typeof value !== 'string' || value.length > 32 || !value.trim()) return defaultDiceSettings.target
+  return isDiceTarget(Number(value)) ? value : defaultDiceSettings.target
+}
+
+function parseDiceAdjustment(value: unknown): DiceAdjustment {
+  return value === 'reset' || value === 'increase' || value === 'decrease' || value === 'none'
+    ? value
+    : 'none'
+}
+
+function parseDicePercent(value: unknown, fallback: string) {
+  const percent = parseBetAmount(value, fallback, true)
+  return percent === '' || Number(percent) <= 1_000 ? percent : fallback
+}
+
 function readSavedState(storage?: AppStorage) {
   const fallback = {
     balance: initialState.balance,
@@ -116,12 +173,14 @@ function readSavedState(storage?: AppStorage) {
     plinkoSettings: defaultPlinkoSettings,
     blackjackSettings: defaultBlackjackSettings,
     minesSettings: defaultMinesSettings,
+    diceResults: [] as DiceResult[],
+    diceSettings: defaultDiceSettings,
   }
   if (!storage) return fallback
 
   try {
     const saved: unknown = JSON.parse(storage.getItem(APP_STORAGE_KEY) ?? 'null')
-    if (!isRecord(saved) || (saved.version !== 1 && saved.version !== 2 && saved.version !== 3)) return fallback
+    if (!isRecord(saved) || (saved.version !== 1 && saved.version !== 2 && saved.version !== 3 && saved.version !== 4)) return fallback
 
     const balance = isRecord(saved.wallet) &&
       typeof saved.wallet.balance === 'number' &&
@@ -154,13 +213,13 @@ function readSavedState(storage?: AppStorage) {
     const plinkoResults = Array.isArray(saved.plinko.results)
       ? saved.plinko.results.slice(-MAX_PLINKO_RESULTS).flatMap(parsePlinkoResult)
       : []
-    const savedBlackjackSettings = saved.version === 3 && isRecord(saved.blackjack) && isRecord(saved.blackjack.settings)
+    const savedBlackjackSettings = (saved.version === 3 || saved.version === 4) && isRecord(saved.blackjack) && isRecord(saved.blackjack.settings)
       ? saved.blackjack.settings
       : {}
     const blackjackSettings: BlackjackSettings = {
       betAmount: parseBetAmount(savedBlackjackSettings.betAmount, defaultBlackjackSettings.betAmount),
     }
-    const savedMinesSettings = saved.version === 3 && isRecord(saved.mines) && isRecord(saved.mines.settings)
+    const savedMinesSettings = (saved.version === 3 || saved.version === 4) && isRecord(saved.mines) && isRecord(saved.mines.settings)
       ? saved.mines.settings
       : {}
     const minesSettings: MinesSettings = {
@@ -176,7 +235,28 @@ function readSavedState(storage?: AppStorage) {
         ? savedMinesSettings.soundEnabled
         : defaultMinesSettings.soundEnabled,
     }
-    return { balance, plinkoResults, plinkoSettings, blackjackSettings, minesSettings }
+    const savedDice = saved.version === 4 && isRecord(saved.dice) ? saved.dice : {}
+    const savedDiceSettings = isRecord(savedDice.settings) ? savedDice.settings : {}
+    const diceSettings: DiceSettings = {
+      autoBetCount: parseAutoBetCount(savedDiceSettings.autoBetCount),
+      betAmount: parseBetAmount(savedDiceSettings.betAmount, defaultDiceSettings.betAmount),
+      direction: savedDiceSettings.direction === 'under' ? 'under' : 'over',
+      mode: savedDiceSettings.mode === 'auto' ? 'auto' : 'manual',
+      onLossAdjustment: parseDiceAdjustment(savedDiceSettings.onLossAdjustment),
+      onLossPercent: parseDicePercent(savedDiceSettings.onLossPercent, defaultDiceSettings.onLossPercent),
+      onWinAdjustment: parseDiceAdjustment(savedDiceSettings.onWinAdjustment),
+      onWinPercent: parseDicePercent(savedDiceSettings.onWinPercent, defaultDiceSettings.onWinPercent),
+      soundEnabled: typeof savedDiceSettings.soundEnabled === 'boolean'
+        ? savedDiceSettings.soundEnabled
+        : defaultDiceSettings.soundEnabled,
+      stopOnLoss: parseBetAmount(savedDiceSettings.stopOnLoss, defaultDiceSettings.stopOnLoss, true),
+      stopOnProfit: parseBetAmount(savedDiceSettings.stopOnProfit, defaultDiceSettings.stopOnProfit, true),
+      target: parseDiceTarget(savedDiceSettings.target),
+    }
+    const diceResults = Array.isArray(savedDice.results)
+      ? savedDice.results.slice(-MAX_DICE_RESULTS).flatMap(parseDiceResult)
+      : []
+    return { balance, plinkoResults, plinkoSettings, blackjackSettings, minesSettings, diceResults, diceSettings }
   } catch {
     // Invalid or unavailable browser storage falls back to demo defaults.
   }
@@ -211,6 +291,35 @@ function parsePlinkoResult(value: unknown): PlinkoResult[] {
   }]
 }
 
+function parseDiceResult(value: unknown): DiceResult[] {
+  if (!isRecord(value)) return []
+  if (
+    typeof value.id !== 'string' || !value.id ||
+    typeof value.wager !== 'number' || !Number.isFinite(value.wager) || value.wager <= 0 ||
+    (value.direction !== 'over' && value.direction !== 'under') ||
+    typeof value.target !== 'number' || !isDiceTarget(value.target) ||
+    typeof value.roll !== 'number' || !Number.isFinite(value.roll) || value.roll < 0 || value.roll >= 100 ||
+    typeof value.winChance !== 'number' || value.winChance !== getDiceWinChance(value.direction, value.target) ||
+    typeof value.multiplier !== 'number' || value.multiplier !== getDiceMultiplier(value.direction, value.target) ||
+    typeof value.won !== 'boolean' ||
+    typeof value.payout !== 'number' || !Number.isFinite(value.payout) || value.payout < 0 ||
+    typeof value.profit !== 'number' || !Number.isFinite(value.profit) ||
+    typeof value.settledAt !== 'number' || !Number.isFinite(value.settledAt) || value.settledAt < 0
+  ) return []
+
+  const round: DiceRound = {
+    id: value.id,
+    wager: value.wager,
+    direction: value.direction,
+    target: value.target,
+    roll: value.roll,
+    winChance: value.winChance,
+    multiplier: value.multiplier,
+  }
+  const result = createSettledDiceRound(round, value.settledAt)
+  return value.won === result.won && value.payout === result.payout && value.profit === result.profit ? [result] : []
+}
+
 function persistState(
   storage: AppStorage | undefined,
   state: {
@@ -218,11 +327,12 @@ function persistState(
     plinko: { results: PlinkoResult[]; settings: PlinkoSettings }
     blackjack: { settings: BlackjackSettings }
     mines: { settings: MinesSettings }
+    dice: { results: DiceResult[]; settings: DiceSettings }
   },
 ) {
   try {
     storage?.setItem(APP_STORAGE_KEY, JSON.stringify({
-      version: 3,
+      version: 4,
       wallet: { balance: state.wallet.balance },
       plinko: {
         results: state.plinko.results,
@@ -230,6 +340,7 @@ function persistState(
       },
       blackjack: { settings: state.blackjack.settings },
       mines: { settings: state.mines.settings },
+      dice: { results: state.dice.results, settings: state.dice.settings },
     }))
   } catch {
     // The demo remains playable when browser storage is unavailable or full.
@@ -382,6 +493,68 @@ const minesSlice = createSlice({
   },
 })
 
+const MAX_DICE_RESULTS = 100
+const diceSlice = createSlice({
+  name: 'dice',
+  initialState: {
+    activeRound: undefined as DiceRound | undefined,
+    results: [] as DiceResult[],
+    statistics: createEmptyDiceStatistics(),
+    settings: defaultDiceSettings,
+  },
+  reducers: {
+    roundStarted(state, action: PayloadAction<DiceRound>) {
+      state.activeRound = action.payload
+    },
+    roundCancelled(state) {
+      state.activeRound = undefined
+    },
+    roundSettled(state, action: PayloadAction<DiceResult>) {
+      if (state.activeRound?.id !== action.payload.id) return
+      state.activeRound = undefined
+      state.results.push(action.payload)
+      if (state.results.length > MAX_DICE_RESULTS) state.results.shift()
+      state.statistics = addDiceResultToStatistics(state.statistics, action.payload)
+    },
+    betAmountChanged(state, action: PayloadAction<string>) {
+      state.settings.betAmount = action.payload
+    },
+    directionChanged(state, action: PayloadAction<DiceDirection>) {
+      state.settings.direction = action.payload
+    },
+    modeChanged(state, action: PayloadAction<DiceMode>) {
+      state.settings.mode = action.payload
+    },
+    targetChanged(state, action: PayloadAction<string>) {
+      state.settings.target = action.payload
+    },
+    autoBetCountChanged(state, action: PayloadAction<string>) {
+      state.settings.autoBetCount = action.payload
+    },
+    onWinAdjustmentChanged(state, action: PayloadAction<DiceAdjustment>) {
+      state.settings.onWinAdjustment = action.payload
+    },
+    onWinPercentChanged(state, action: PayloadAction<string>) {
+      state.settings.onWinPercent = action.payload
+    },
+    onLossAdjustmentChanged(state, action: PayloadAction<DiceAdjustment>) {
+      state.settings.onLossAdjustment = action.payload
+    },
+    onLossPercentChanged(state, action: PayloadAction<string>) {
+      state.settings.onLossPercent = action.payload
+    },
+    stopOnProfitChanged(state, action: PayloadAction<string>) {
+      state.settings.stopOnProfit = action.payload
+    },
+    stopOnLossChanged(state, action: PayloadAction<string>) {
+      state.settings.stopOnLoss = action.payload
+    },
+    soundEnabledChanged(state, action: PayloadAction<boolean>) {
+      state.settings.soundEnabled = action.payload
+    },
+  },
+})
+
 const {
   roundStarted: blackjackRoundStarted,
   roundUpdated: blackjackRoundUpdated,
@@ -394,6 +567,7 @@ const {
   roundCancelled: minesRoundCancelled,
   roundSettled: minesRoundSettled,
 } = minesSlice.actions
+const { roundStarted: diceRoundStarted, roundCancelled: diceRoundCancelled, roundSettled: diceRoundSettled } = diceSlice.actions
 
 const { betAccepted, betRemoved, betSettled } = plinkoSlice.actions
 export const {
@@ -412,6 +586,20 @@ export const {
   luckChanged: setMinesLuck,
   soundEnabledChanged: setMinesSoundEnabled,
 } = minesSlice.actions
+export const {
+  betAmountChanged: setDiceBetAmount,
+  directionChanged: setDiceDirection,
+  modeChanged: setDiceMode,
+  targetChanged: setDiceTarget,
+  autoBetCountChanged: setDiceAutoBetCount,
+  onWinAdjustmentChanged: setDiceOnWinAdjustment,
+  onWinPercentChanged: setDiceOnWinPercent,
+  onLossAdjustmentChanged: setDiceOnLossAdjustment,
+  onLossPercentChanged: setDiceOnLossPercent,
+  stopOnProfitChanged: setDiceStopOnProfit,
+  stopOnLossChanged: setDiceStopOnLoss,
+  soundEnabledChanged: setDiceSoundEnabled,
+} = diceSlice.actions
 
 export const createAppStore = (storage: AppStorage | undefined = getBrowserStorage()) => {
   const savedState = readSavedState(storage)
@@ -421,6 +609,7 @@ export const createAppStore = (storage: AppStorage | undefined = getBrowserStora
       plinko: plinkoSlice.reducer,
       blackjack: blackjackSlice.reducer,
       mines: minesSlice.reducer,
+      dice: diceSlice.reducer,
     },
     preloadedState: {
       wallet: { balance: savedState.balance },
@@ -432,6 +621,12 @@ export const createAppStore = (storage: AppStorage | undefined = getBrowserStora
         statistics: createEmptyMinesStatistics(),
         settings: savedState.minesSettings,
       },
+    dice: {
+      activeRound: undefined,
+      results: savedState.diceResults,
+      statistics: calculateDiceStatistics(savedState.diceResults),
+      settings: savedState.diceSettings,
+    },
     },
   })
 
@@ -455,6 +650,55 @@ export const selectMinesRound = (state: RootState) => state.mines.activeRound
 export const selectMinesResults = (state: RootState) => state.mines.results
 export const selectMinesStatistics = (state: RootState) => state.mines.statistics
 export const selectMinesSettings = (state: RootState) => state.mines.settings
+export const selectDiceRound = (state: RootState) => state.dice.activeRound
+export const selectDiceResults = (state: RootState) => state.dice.results
+export const selectDiceStatistics = (state: RootState) => state.dice.statistics
+export const selectDiceSettings = (state: RootState) => state.dice.settings
+
+export const startDiceRound = (
+  roundId: string,
+  wager: number,
+  direction: DiceDirection,
+  target: number,
+  random: () => number = Math.random,
+) => (dispatch: AppDispatch, getState: () => RootState) => {
+  const state = getState()
+  if (
+    !roundId || state.dice.activeRound || state.dice.results.some((result) => result.id === roundId) ||
+    !Number.isFinite(wager) || wager <= 0 || wager > selectBalance(state)
+  ) return false
+
+  let round: DiceRound
+  try {
+    round = createDiceRound(roundId, wager, direction, target, random)
+  } catch {
+    return false
+  }
+  dispatch(betPlaced(wager))
+  dispatch(diceRoundStarted(round))
+  return true
+}
+
+export const settleDiceBet = (roundId: string, settledAt = Date.now()) => (
+  dispatch: AppDispatch,
+  getState: () => RootState,
+) => {
+  const round = selectDiceRound(getState())
+  if (!round || round.id !== roundId) return false
+
+  const result = createSettledDiceRound(round, settledAt)
+  dispatch(diceRoundSettled(result))
+  dispatch(payoutCredited(result.payout))
+  return result
+}
+
+export const cancelDiceRound = () => (dispatch: AppDispatch, getState: () => RootState) => {
+  const round = selectDiceRound(getState())
+  if (!round) return false
+  dispatch(diceRoundCancelled())
+  dispatch(payoutCredited(round.wager))
+  return true
+}
 
 export const acceptPlinkoBet = (
   roundId: string,

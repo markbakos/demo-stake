@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="glow" cx="65%" cy="40%" r="75%">
+      <stop offset="0" stop-color="#174536"/>
+      <stop offset="1" stop-color="#0f192a"/>
+    </radialGradient>
+    <linearGradient id="track" x2="1">
+      <stop offset="0" stop-color="#ed4163"/>
+      <stop offset="50.5%" stop-color="#ed4163"/>
+      <stop offset="50.5%" stop-color="#00e701"/>
+      <stop offset="1" stop-color="#00e701"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="24" fill="#1a2c38"/>
+  <rect x="35" y="35" width="1130" height="560" rx="22" fill="#0f192a"/>
+  <rect x="35" y="35" width="1130" height="560" rx="22" fill="url(#glow)" opacity=".75"/>
+  <text x="88" y="112" fill="#00e701" font-family="Arial,sans-serif" font-size="21" font-weight="700" letter-spacing="5">DEMO CASINO</text>
+  <text x="88" y="205" fill="#ffffff" font-family="Arial,sans-serif" font-size="72" font-weight="800">DICE</text>
+  <text x="90" y="250" fill="#b1bad3" font-family="Arial,sans-serif" font-size="24">Roll Over · Roll Under · Virtual Credits</text>
+  <rect x="520" y="118" width="576" height="348" rx="18" fill="#172b36" stroke="#2f4553" stroke-width="3"/>
+  <text x="808" y="190" fill="#b1bad3" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3" text-anchor="middle">YOUR ROLL</text>
+  <text x="808" y="285" fill="#ffffff" font-family="Arial,sans-serif" font-size="76" font-weight="800" text-anchor="middle">72.64</text>
+  <rect x="592" y="346" width="432" height="16" rx="8" fill="url(#track)"/>
+  <circle cx="898" cy="354" r="13" fill="#0f212e" stroke="#ffffff" stroke-width="5"/>
+  <text x="592" y="395" fill="#b1bad3" font-family="Arial,sans-serif" font-size="16">0</text>
+  <text x="1024" y="395" fill="#b1bad3" font-family="Arial,sans-serif" font-size="16" text-anchor="end">100</text>
+  <rect x="89" y="340" width="176" height="66" rx="10" fill="#213743"/>
+  <text x="112" y="367" fill="#b1bad3" font-family="Arial,sans-serif" font-size="15">MULTIPLIER</text>
+  <text x="112" y="391" fill="#ffffff" font-family="Arial,sans-serif" font-size="22" font-weight="700">2.0000×</text>
+  <rect x="280" y="340" width="196" height="66" rx="10" fill="#213743"/>
+  <text x="303" y="367" fill="#b1bad3" font-family="Arial,sans-serif" font-size="15">WIN CHANCE</text>
+  <text x="303" y="391" fill="#ffffff" font-family="Arial,sans-serif" font-size="22" font-weight="700">49.5000%</text>
+  <rect x="89" y="445" width="387" height="64" rx="10" fill="#00e701"/>
+  <text x="282" y="485" fill="#0f212e" font-family="Arial,sans-serif" font-size="22" font-weight="800" text-anchor="middle">BET · DEMO CREDITS</text>
+</svg>

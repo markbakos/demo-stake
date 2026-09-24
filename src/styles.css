@@ -92,6 +92,56 @@ select:not(:disabled) {
   animation: mines-tile-reveal 180ms ease-out;
 }
 
+.dice-target-slider {
+  appearance: none;
+  background: transparent;
+}
+
+.dice-target-slider::-webkit-slider-runnable-track {
+  height: 12px;
+  background: transparent;
+}
+
+.dice-target-slider::-moz-range-track {
+  height: 12px;
+  background: transparent;
+}
+
+.dice-target-slider::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  margin-top: -4px;
+  appearance: none;
+  border: 3px solid #0f212e;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
+}
+
+.dice-target-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 3px solid #0f212e;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
+}
+
+.dice-target-slider:focus-visible {
+  outline: 2px solid #00e701;
+  outline-offset: 6px;
+  border-radius: 999px;
+}
+
+@keyframes dice-roll-number {
+  from { transform: translateY(-2px); }
+  to { transform: translateY(2px); }
+}
+
+.dice-roll-number {
+  animation: dice-roll-number 90ms ease-in-out infinite alternate;
+}
+
 @media (min-width: 640px) {
   .blackjack-card {
     width: 4.5rem;
@@ -127,6 +177,10 @@ select:not(:disabled) {
   }
 
   .mines-tile-reveal {
+    animation: none;
+  }
+
+  .dice-roll-number {
     animation: none;
   }
 }
