@@ -1,11 +1,13 @@
 export const MINES_TILE_COUNT = 25
 
 export type MinesStatus = 'playing' | 'mine' | 'cashed-out' | 'cleared'
+export type MinesLuck = 'normal' | 'favored' | 'kind'
 
 export type MinesRound = {
   id: string
   wager: number
   mineCount: number
+  luck: MinesLuck
   minePositions: number[]
   revealedTiles: number[]
   status: MinesStatus
@@ -40,6 +42,7 @@ export function createMinesRound(
   wager: number,
   mineCount: number,
   minePositions = createMinePositions(mineCount),
+  luck: MinesLuck = 'normal',
 ): MinesRound {
   const uniqueMines = new Set(minePositions)
   if (
@@ -50,7 +53,8 @@ export function createMinesRound(
     mineCount < 1 ||
     mineCount >= MINES_TILE_COUNT ||
     uniqueMines.size !== mineCount ||
-    !minePositions.every(isTileIndex)
+    !minePositions.every(isTileIndex) ||
+    (luck !== 'normal' && luck !== 'favored' && luck !== 'kind')
   ) {
     throw new RangeError('A Mines round needs a valid id, wager, mine count, and mine layout.')
   }
@@ -59,6 +63,7 @@ export function createMinesRound(
     id,
     wager,
     mineCount,
+    luck,
     minePositions: [...minePositions].sort((a, b) => a - b),
     revealedTiles: [],
     status: 'playing',
@@ -90,11 +95,23 @@ export function getSafeRevealCount(round: MinesRound) {
   return round.revealedTiles.filter((tile) => !round.minePositions.includes(tile)).length
 }
 
-export function revealMinesTile(round: MinesRound, tile: number): MinesRound {
+export function revealMinesTile(round: MinesRound, tile: number, random: () => number = Math.random): MinesRound {
   if (round.status !== 'playing' || !isTileIndex(tile) || round.revealedTiles.includes(tile)) return round
 
   const revealedTiles = [...round.revealedTiles, tile]
-  if (round.minePositions.includes(tile)) return { ...round, revealedTiles, status: 'mine' }
+  if (round.minePositions.includes(tile)) {
+    const saveChance = round.luck === 'kind' ? 0.16 : round.luck === 'favored' ? 0.08 : 0
+    const replacementTiles = saveChance > 0 && random() < saveChance
+      ? Array.from({ length: MINES_TILE_COUNT }, (_, index) => index)
+        .filter((index) => index !== tile && !round.revealedTiles.includes(index) && !round.minePositions.includes(index))
+      : []
+    if (replacementTiles.length > 0) {
+      const movedMine = replacementTiles[Math.floor(random() * replacementTiles.length)]
+      const minePositions = round.minePositions.map((position) => position === tile ? movedMine : position).sort((a, b) => a - b)
+      return { ...round, minePositions, revealedTiles, status: 'playing' }
+    }
+    return { ...round, revealedTiles, status: 'mine' }
+  }
 
   const safeReveals = revealedTiles.length
   const status = safeReveals === MINES_TILE_COUNT - round.mineCount ? 'cleared' : 'playing'

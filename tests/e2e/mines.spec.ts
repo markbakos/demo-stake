@@ -23,8 +23,30 @@ test('reveals every tile crossed during a drag', async ({ page }) => {
   for (const tile of [1, 2, 3]) {
     const button = page.getByRole('button', { name: `Tile ${tile}: gem` })
     await expect(button).toBeVisible()
-    await expect(button).toBeEnabled()
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
   }
+})
+
+test('settings control sound and Mines luck saves a hit without removing a bomb', async ({ page }, testInfo) => {
+  await page.goto('/mines')
+  await page.getByRole('button', { name: 'Game settings' }).click()
+
+  const settings = page.getByRole('dialog', { name: 'Game Settings' })
+  await expect(settings).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('mines-settings.png'), fullPage: true })
+  await settings.getByRole('radio', { name: /Kind/ }).check()
+  await settings.getByRole('checkbox', { name: /Sound Effects/ }).uncheck()
+  await settings.getByRole('button', { name: 'Close settings' }).click()
+
+  await page.evaluate(() => {
+    Math.random = () => 0
+    return (window as MinesDemoWindow).startMinesDemo?.([0, 1, 2])
+  })
+  await page.getByRole('button', { name: 'Tile 1', exact: true }).click()
+
+  await expect(page.getByRole('button', { name: 'Tile 1: gem' })).toBeVisible()
+  await expect(page.getByText('1 gem found · 1.13×')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Mines board' }).getByText('3', { exact: true })).toBeVisible()
 })
 
 test('plays winning and losing Mines rounds with the shared wallet', async ({ page }, testInfo) => {

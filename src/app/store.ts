@@ -18,6 +18,7 @@ import {
   createMinesRound,
   revealMinesTile,
   settleMinesRound,
+  type MinesLuck,
   type MinesResult,
   type MinesRound,
 } from '../games/mines/minesGame'
@@ -55,7 +56,7 @@ type PlinkoSettings = {
 }
 
 type BlackjackSettings = { betAmount: string }
-type MinesSettings = { betAmount: string; mineCount: number; soundEnabled: boolean }
+type MinesSettings = { betAmount: string; luck: MinesLuck; mineCount: number; soundEnabled: boolean }
 
 export type PlinkoResult = PlinkoBetSnapshot & {
   id: string
@@ -77,7 +78,7 @@ const defaultPlinkoSettings: PlinkoSettings = {
   soundEnabled: true,
 }
 const defaultBlackjackSettings: BlackjackSettings = { betAmount: '1' }
-const defaultMinesSettings: MinesSettings = { betAmount: '1', mineCount: 3, soundEnabled: true }
+const defaultMinesSettings: MinesSettings = { betAmount: '1', luck: 'normal', mineCount: 3, soundEnabled: true }
 
 const initialState: WalletState = {
   balance: 10_000,
@@ -164,6 +165,9 @@ function readSavedState(storage?: AppStorage) {
       : {}
     const minesSettings: MinesSettings = {
       betAmount: parseBetAmount(savedMinesSettings.betAmount, defaultMinesSettings.betAmount),
+      luck: savedMinesSettings.luck === 'normal' || savedMinesSettings.luck === 'favored' || savedMinesSettings.luck === 'kind'
+        ? savedMinesSettings.luck
+        : defaultMinesSettings.luck,
       mineCount: typeof savedMinesSettings.mineCount === 'number' &&
         Number.isInteger(savedMinesSettings.mineCount) && savedMinesSettings.mineCount >= 1 && savedMinesSettings.mineCount <= 24
         ? savedMinesSettings.mineCount
@@ -369,6 +373,9 @@ const minesSlice = createSlice({
     mineCountChanged(state, action: PayloadAction<number>) {
       state.settings.mineCount = action.payload
     },
+    luckChanged(state, action: PayloadAction<MinesLuck>) {
+      state.settings.luck = action.payload
+    },
     soundEnabledChanged(state, action: PayloadAction<boolean>) {
       state.settings.soundEnabled = action.payload
     },
@@ -402,6 +409,7 @@ export const { betAmountChanged: setBlackjackBetAmount } = blackjackSlice.action
 export const {
   betAmountChanged: setMinesBetAmount,
   mineCountChanged: setMinesMineCount,
+  luckChanged: setMinesLuck,
   soundEnabledChanged: setMinesSoundEnabled,
 } = minesSlice.actions
 
@@ -626,7 +634,7 @@ export const startMinesRound = (
 
   let round: MinesRound
   try {
-    round = createMinesRound(roundId, wager, mineCount, minePositions ? [...minePositions] : undefined)
+    round = createMinesRound(roundId, wager, mineCount, minePositions ? [...minePositions] : undefined, state.mines.settings.luck)
   } catch {
     return false
   }
@@ -635,13 +643,16 @@ export const startMinesRound = (
   return true
 }
 
-export const revealMineTile = (tile: number) => (dispatch: AppDispatch, getState: () => RootState) => {
+export const revealMineTile = (tile: number, random: () => number = Math.random) => (dispatch: AppDispatch, getState: () => RootState) => {
   const round = selectMinesRound(getState())
   if (!round) return false
-  const updated = revealMinesTile(round, tile)
+  const updated = revealMinesTile(round, tile, random)
   if (updated === round) return false
   updateMinesRound(dispatch, updated)
-  return true
+  return {
+    isMine: updated.status === 'mine',
+    isFinalSafeReveal: updated.status === 'cleared',
+  }
 }
 
 export const cashOutMines = () => (dispatch: AppDispatch, getState: () => RootState) => {

@@ -18,6 +18,7 @@ import {
   settlePlinkoBet,
   setBlackjackBetAmount,
   setMinesBetAmount,
+  setMinesLuck,
   setMinesMineCount,
   setMinesSoundEnabled,
   setPlinkoAutoBetCount,
@@ -97,7 +98,7 @@ describe('walletReducer', () => {
         },
       },
       blackjack: { settings: { betAmount: '1' } },
-      mines: { settings: { betAmount: '1', mineCount: 3, soundEnabled: true } },
+      mines: { settings: { betAmount: '1', luck: 'normal', mineCount: 3, soundEnabled: true } },
     })
 
     values.set(APP_STORAGE_KEY, JSON.stringify({ version: 1, wallet: { balance: -1 } }))
@@ -130,6 +131,7 @@ describe('walletReducer', () => {
     store.dispatch(setPlinkoSoundEnabled(true))
     store.dispatch(setBlackjackBetAmount('25'))
     store.dispatch(setMinesBetAmount('3.75'))
+    store.dispatch(setMinesLuck('favored'))
     store.dispatch(setMinesMineCount(8))
     store.dispatch(setMinesSoundEnabled(false))
 
@@ -140,7 +142,7 @@ describe('walletReducer', () => {
       autoBetCount: '7', luck: 'favored', soundEnabled: true,
     })
     expect(selectBlackjackSettings(reloaded.getState())).toEqual({ betAmount: '25' })
-    expect(selectMinesSettings(reloaded.getState())).toEqual({ betAmount: '3.75', mineCount: 8, soundEnabled: false })
+    expect(selectMinesSettings(reloaded.getState())).toEqual({ betAmount: '3.75', luck: 'favored', mineCount: 8, soundEnabled: false })
   })
 
   it('rejects invalid persisted game settings and uses defaults', () => {
@@ -152,7 +154,7 @@ describe('walletReducer', () => {
         risk: 'custom', rows: 7, soundEnabled: 'false',
       } },
       blackjack: { settings: { betAmount: '0' } },
-      mines: { settings: { betAmount: '-2', mineCount: 25, soundEnabled: 'false' } },
+      mines: { settings: { betAmount: '-2', luck: 'unlucky', mineCount: 25, soundEnabled: 'false' } },
     })]])
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -165,7 +167,7 @@ describe('walletReducer', () => {
       risk: 'medium', rows: 16, soundEnabled: true,
     })
     expect(selectBlackjackSettings(store.getState())).toEqual({ betAmount: '1' })
-    expect(selectMinesSettings(store.getState())).toEqual({ betAmount: '1', mineCount: 3, soundEnabled: true })
+    expect(selectMinesSettings(store.getState())).toEqual({ betAmount: '1', luck: 'normal', mineCount: 3, soundEnabled: true })
   })
 
   it('refunds orphaned active rounds', () => {
@@ -216,7 +218,7 @@ describe('walletReducer', () => {
     expect(store.dispatch(startMinesRound('too-expensive', 10_001, 3, [0, 1, 2]))).toBe(false)
     expect(store.dispatch(startMinesRound('cashout', 100, 3, [0, 1, 2]))).toBe(true)
     expect(store.getState().wallet.balance).toBe(9_900)
-    expect(store.dispatch(revealMineTile(3))).toBe(true)
+    expect(store.dispatch(revealMineTile(3))).toMatchObject({ isMine: false, isFinalSafeReveal: false })
     expect(store.dispatch(revealMineTile(3))).toBe(false)
     expect(store.dispatch(cashOutMines())).toBe(true)
     expect(store.dispatch(cashOutMines())).toBe(false)
@@ -224,16 +226,32 @@ describe('walletReducer', () => {
     expect(store.getState().mines.results[0]).toMatchObject({ payout: 113, profit: 13, status: 'cashed-out' })
 
     expect(store.dispatch(startMinesRound('mine', 100, 3, [0, 1, 2]))).toBe(true)
-    expect(store.dispatch(revealMineTile(0))).toBe(true)
+    expect(store.dispatch(revealMineTile(0))).toMatchObject({ isMine: true, isFinalSafeReveal: false })
     expect(store.getState().wallet.balance).toBe(9_913)
     expect(store.getState().mines.results[1]).toMatchObject({ payout: 0, profit: -100, status: 'mine' })
+  })
+
+  it('snapshots Mines luck and relocates a saved hit without losing a mine', () => {
+    const store = createAppStore()
+    store.dispatch(setMinesLuck('favored'))
+    expect(store.dispatch(startMinesRound('saved-hit', 100, 3, [0, 1, 2]))).toBe(true)
+    expect(store.getState().mines.activeRound?.luck).toBe('favored')
+
+    store.dispatch(setMinesLuck('normal'))
+    const outcome = store.dispatch(revealMineTile(0, () => 0))
+    const activeRound = store.getState().mines.activeRound
+    expect(outcome).toEqual({ isMine: false, isFinalSafeReveal: false })
+    expect(activeRound).toMatchObject({ status: 'playing', mineCount: 3, luck: 'favored', revealedTiles: [0] })
+    expect(activeRound?.minePositions).toHaveLength(3)
+    expect(activeRound?.minePositions).not.toContain(0)
+    expect(new Set(activeRound?.minePositions).size).toBe(3)
   })
 
   it('keeps Mines session statistics cumulative when recent results roll over', () => {
     const store = createAppStore(undefined)
     for (let round = 1; round <= 55; round += 1) {
       expect(store.dispatch(startMinesRound(`round-${round}`, round, 1, [0]))).toBe(true)
-      expect(store.dispatch(revealMineTile(0))).toBe(true)
+      expect(store.dispatch(revealMineTile(0))).toMatchObject({ isMine: true, isFinalSafeReveal: false })
     }
 
     expect(selectMinesResults(store.getState())).toHaveLength(50)

@@ -33,6 +33,28 @@ describe('Mines game', () => {
     expect(result).toMatchObject({ status: 'mine', multiplier: 0, payout: 0, profit: -100 })
   })
 
+  it('moves a saved bomb to a hidden tile without changing the mine count', () => {
+    const round = createMinesRound('saved', 100, 3, [0, 1, 2], 'favored')
+    const randomValues = [0.079, 0]
+    const saved = revealMinesTile(round, 0, () => randomValues.shift() ?? 0)
+
+    expect(saved).toMatchObject({ status: 'playing', mineCount: 3, revealedTiles: [0] })
+    expect(saved.minePositions).toHaveLength(3)
+    expect(new Set(saved.minePositions).size).toBe(3)
+    expect(saved.minePositions).not.toContain(0)
+    expect(saved.minePositions).toContain(3)
+    expect(saved.revealedTiles.some((tile) => saved.minePositions.includes(tile))).toBe(false)
+  })
+
+  it('uses the configured per-hit save chances', () => {
+    const favored = createMinesRound('favored', 1, 1, [0], 'favored')
+    const kind = createMinesRound('kind', 1, 1, [0], 'kind')
+
+    expect(revealMinesTile(favored, 0, () => 0.08).status).toBe('mine')
+    expect(revealMinesTile(kind, 0, () => 0.159).status).toBe('playing')
+    expect(revealMinesTile(kind, 0, () => 0.16).status).toBe('mine')
+  })
+
   it('cash outs and automatically clears the last safe tile', () => {
     const round = createMinesRound('cashout', 100, 3, [0, 1, 2])
     const cashedOut = cashOutMinesRound(revealMinesTile(round, 3))

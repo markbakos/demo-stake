@@ -1,4 +1,4 @@
-import { BarChart3, Bomb, Dices, Gem, Volume2, VolumeX } from 'lucide-react'
+import { BarChart3, Bomb, Dices, Gem, Settings, Volume2, VolumeX, X } from 'lucide-react'
 import { useEffect, useRef, type ChangeEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -11,6 +11,7 @@ import {
   selectMinesRound,
   selectMinesStatistics,
   setMinesBetAmount,
+  setMinesLuck,
   setMinesMineCount,
   setMinesSoundEnabled as setStoredMinesSoundEnabled,
   startMinesRound,
@@ -19,13 +20,19 @@ import {
 import { usePageMetadata } from '../../app/usePageMetadata'
 import { useSpaceShortcut } from '../../shared/useSpaceShortcut'
 import { playMinesCashOut, playMinesGem, playMinesMine, prepareMinesAudio, setMinesSoundEnabled } from './minesAudio'
-import { getMinesMultiplier, getSafeRevealCount, MINES_TILE_COUNT } from './minesGame'
+import { getMinesMultiplier, getSafeRevealCount, MINES_TILE_COUNT, type MinesLuck } from './minesGame'
 import { SessionStatisticsDialog } from '../../shared/SessionStatisticsDialog'
 
 const creditFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
+
+const LUCK_OPTIONS: readonly { value: MinesLuck; label: string; description: string }[] = [
+  { value: 'normal', label: 'Normal', description: 'No bomb saves' },
+  { value: 'favored', label: 'Favored', description: '8% save chance per hit' },
+  { value: 'kind', label: 'Kind', description: '16% save chance per hit' },
+]
 
 const MINES_METADATA = {
   title: 'Free Mines Demo | Demo Casino',
@@ -58,7 +65,8 @@ export function MinesPage() {
   const activeRound = useSelector(selectMinesRound)
   const results = useSelector(selectMinesResults)
   const statistics = useSelector(selectMinesStatistics)
-  const { betAmount: betAmountInput, mineCount, soundEnabled: isSoundEnabled } = useSelector(selectMinesSettings)
+  const { betAmount: betAmountInput, luck, mineCount, soundEnabled: isSoundEnabled } = useSelector(selectMinesSettings)
+  const settingsDialogRef = useRef<HTMLDialogElement>(null)
   const statisticsDialogRef = useRef<HTMLDialogElement>(null)
   const dragPointerId = useRef<number | null>(null)
   const lastDraggedTile = useRef<number | null>(null)
@@ -139,11 +147,10 @@ export function MinesPage() {
 
   function revealTile(tile: number) {
     if (!activeRound) return
-    const isMine = activeRound.minePositions.includes(tile)
-    const isFinalSafeReveal = !isMine && activeRound.revealedTiles.length + 1 === MINES_TILE_COUNT - activeRound.mineCount
-    if (!dispatch(revealMineTile(tile)) || !isSoundEnabled) return
-    if (isMine) playMinesMine()
-    else if (isFinalSafeReveal) playMinesCashOut()
+    const outcome = dispatch(revealMineTile(tile))
+    if (!outcome || !isSoundEnabled) return
+    if (outcome.isMine) playMinesMine()
+    else if (outcome.isFinalSafeReveal) playMinesCashOut()
     else playMinesGem()
   }
 
@@ -271,14 +278,6 @@ export function MinesPage() {
             </select>
           </div>
 
-          <label className="flex cursor-pointer items-center justify-between gap-4 rounded bg-[#172b36] p-3 hover:bg-[#2f4553] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#00e701]">
-            <span className="flex items-center gap-3 text-sm font-semibold">
-              {isSoundEnabled ? <Volume2 aria-hidden="true" className="size-5 text-[#b1bad3]" /> : <VolumeX aria-hidden="true" className="size-5 text-[#b1bad3]" />}
-              Sound Effects
-            </span>
-            <input type="checkbox" name="minesSound" checked={isSoundEnabled} onChange={handleSoundChange} className="size-5 shrink-0 accent-[#00e701]" />
-          </label>
-
           {activeRound ? (
             <>
               <button type="button" disabled={safeReveals === 0} onClick={cashOut} className="rounded bg-[#00e701] py-3 font-bold text-[#0f212e] shadow-md shadow-black/20 transition-colors hover:bg-[#1fff20] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#557086] disabled:text-[#b1bad3]">
@@ -293,18 +292,101 @@ export function MinesPage() {
           )}
 
           <div className="mt-auto border-t border-[#2f4553] pt-4 text-xs leading-5 text-[#b1bad3]">
-            <button
-              type="button"
-              aria-label="Open live statistics"
-              onClick={() => statisticsDialogRef.current?.showModal()}
-              className="mb-4 flex items-center gap-2 rounded p-2 text-sm font-semibold text-[#b1bad3] transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
-            >
-              <BarChart3 aria-hidden="true" className="size-5" /> Statistics
-            </button>
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Game settings"
+                onClick={() => settingsDialogRef.current?.showModal()}
+                className="rounded p-2 text-[#b1bad3] transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+              >
+                <Settings aria-hidden="true" className="size-5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Open live statistics"
+                onClick={() => statisticsDialogRef.current?.showModal()}
+                className="flex items-center gap-2 rounded p-2 text-sm font-semibold text-[#b1bad3] transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+              >
+                <BarChart3 aria-hidden="true" className="size-5" /> Statistics
+              </button>
+            </div>
             <p><strong className="text-white">Demo rules:</strong> Choose 1–24 mines. Each safe tile raises the payout. Cash out before finding a mine.</p>
           </div>
         </aside>
       </div>
+      <dialog
+        ref={settingsDialogRef}
+        aria-labelledby="mines-settings-title"
+        className="m-auto max-h-[calc(100dvh-1rem)] w-[min(32rem,calc(100%-1rem))] overflow-y-auto overscroll-contain rounded-lg border border-[#2f4553] bg-[#213743] p-0 text-white shadow-2xl backdrop:bg-black/70 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(32rem,calc(100%-2rem))]"
+      >
+        <form method="dialog" className="p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <h2 id="mines-settings-title" className="text-xl font-bold">Game Settings</h2>
+            <button
+              type="submit"
+              aria-label="Close settings"
+              className="shrink-0 rounded p-2 text-[#b1bad3] transition-colors hover:bg-[#2f4553] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00e701]"
+            >
+              <X aria-hidden="true" className="size-5" />
+            </button>
+          </div>
+
+          <fieldset className="mt-5">
+            <legend className="text-sm font-semibold text-[#b1bad3]">Luck</legend>
+            <p className="mt-1 text-xs leading-5 text-[#b1bad3]">
+              A saved hit reveals the clicked tile and moves its bomb to another hidden tile. The bomb count stays the same.
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {LUCK_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={`flex min-w-0 cursor-pointer items-start gap-2 rounded border p-3 transition-colors ${
+                    luck === option.value
+                      ? 'border-[#00e701] bg-[#0f212e]'
+                      : 'border-[#2f4553] bg-[#172b36] hover:border-[#557086]'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="minesLuck"
+                    value={option.value}
+                    checked={luck === option.value}
+                    onChange={() => dispatch(setMinesLuck(option.value))}
+                    className="mt-1 accent-[#00e701]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{option.label}</span>
+                    <span className="mt-0.5 block text-xs text-[#b1bad3]">{option.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-[#b1bad3]">Changes apply to new rounds.</p>
+          </fieldset>
+
+          <fieldset className="mt-5 border-t border-[#2f4553] pt-5">
+            <legend className="sr-only">Sound</legend>
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded bg-[#172b36] p-3 hover:bg-[#1a303c] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#00e701]">
+              <span className="flex min-w-0 items-center gap-3">
+                {isSoundEnabled
+                  ? <Volume2 aria-hidden="true" className="size-5 shrink-0 text-[#b1bad3]" />
+                  : <VolumeX aria-hidden="true" className="size-5 shrink-0 text-[#b1bad3]" />}
+                <span>
+                  <span className="block text-sm font-semibold">Sound Effects</span>
+                  <span className="block text-xs text-[#b1bad3]">Tile & cash out sounds</span>
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                name="minesSound"
+                checked={isSoundEnabled}
+                onChange={handleSoundChange}
+                className="size-5 shrink-0 accent-[#00e701]"
+              />
+            </label>
+          </fieldset>
+        </form>
+      </dialog>
       <SessionStatisticsDialog ref={statisticsDialogRef} playLabel="Rounds" statistics={statistics} />
     </main>
   )
