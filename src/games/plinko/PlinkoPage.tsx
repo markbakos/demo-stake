@@ -20,6 +20,7 @@ import {
   settlePlinkoBet,
   type AppDispatch,
 } from '../../app/store'
+import { useSpaceShortcut } from '../../shared/useSpaceShortcut'
 import { PlinkoBoard } from './PlinkoBoard'
 import { PlinkoStatisticsDialog } from './PlinkoStatisticsDialog'
 import {
@@ -137,6 +138,8 @@ export function PlinkoPage() {
 
     if (!dropBall({ roundId, targetBin, path })) dispatch(cancelPlinkoBet(roundId))
   }
+
+  useSpaceShortcut(mode === 'manual' && betAmount !== null && !isBetUnaffordable, handleBet)
 
   return (
     <main id="main-content" className="px-2 py-3 sm:px-5 sm:py-6 lg:py-8">

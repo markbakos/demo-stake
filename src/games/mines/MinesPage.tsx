@@ -17,6 +17,7 @@ import {
   type AppDispatch,
 } from '../../app/store'
 import { usePageMetadata } from '../../app/usePageMetadata'
+import { useSpaceShortcut } from '../../shared/useSpaceShortcut'
 import { playMinesCashOut, playMinesGem, playMinesMine, prepareMinesAudio, setMinesSoundEnabled } from './minesAudio'
 import { getMinesMultiplier, getSafeRevealCount, MINES_TILE_COUNT } from './minesGame'
 import { SessionStatisticsDialog } from '../../shared/SessionStatisticsDialog'
@@ -164,6 +165,8 @@ export function MinesPage() {
     const tile = hiddenTiles[Math.floor(Math.random() * hiddenTiles.length)]
     revealTile(tile)
   }
+
+  useSpaceShortcut(Boolean(activeRound), revealRandomTile)
 
   function startTileSweep(tile: number, event: ReactPointerEvent<HTMLButtonElement>) {
     if (!activeRound || !event.isPrimary || event.button !== 0) return
