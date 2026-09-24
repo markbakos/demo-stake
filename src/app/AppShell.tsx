@@ -65,7 +65,7 @@ export function AppShell() {
           <span className="ml-3 hidden text-xl font-extrabold tracking-tight sm:inline" translate="no">
             Casino
           </span>
-          <div className="ml-auto flex min-w-0 overflow-hidden rounded shadow-md sm:absolute sm:left-1/2 sm:ml-0 sm:-translate-x-1/2">
+          <div className="ml-auto flex min-w-0 select-none overflow-hidden rounded shadow-md sm:absolute sm:left-1/2 sm:ml-0 sm:-translate-x-1/2">
             <div className="flex min-w-0 items-center gap-1.5 bg-[#0f212e] px-2.5 py-2 text-sm font-semibold tabular-nums sm:gap-2 sm:px-3 sm:text-base">
               <CircleDollarSign aria-hidden="true" className="size-4 text-[#b1bad3]" />
               <span aria-live="polite">{creditFormatter.format(balance)}</span>
